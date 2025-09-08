@@ -1,0 +1,9 @@
+# Start from the official BIDSonym image you already use
+FROM peerherholz/bidsonym:latest
+
+# Install matplotlib into the SAME env shown in your traceback:
+# /opt/miniconda-latest/envs/bidsonym
+RUN /opt/miniconda-latest/envs/bidsonym/bin/pip install --no-cache-dir matplotlib
+
+# (Optional) lock a specific version if you want reproducibility:
+# RUN /opt/miniconda-latest/envs/bidsonym/bin/pip install --no-cache-dir "matplotlib==3.8.*"

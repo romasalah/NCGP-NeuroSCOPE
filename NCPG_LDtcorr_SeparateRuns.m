@@ -1,0 +1,30 @@
+% ==========================================================================
+% Overall goal (user-provided): Overall goal: Calculates LDt values without averaging the 6 runs done by each participant
+% Note: Added comments only; code unchanged.
+% ==========================================================================
+% ==========================================================================
+% Overall goal: Calculates LDt values without averaging the 6 runs done by each participant
+% Note:
+% ==========================================================================
+% Function signature
+function [LLM_LDtcorr_SepRun_alltasks, LLM_LDtcorr, LDtcorr, sigFDR_idx, p_FDR, p_uncorrected, sig_FDR_meancorr]=NCPG_LDtcorr_SeparateRuns(wf2, ds, LDt_byrun, taskname, vo, fo, mask, maskidx_subsesshemi)
+LLM_LDtcorr_SepRun_alltasks={};
+% Section: for-block starts
+for ti = 1:length(taskname)
+    curtaskname=taskname{ti};
+    wf2.curRDM=  mean(wf2.targetRSM_pre{ti},3);
+    %% Correlation of LDC values and behavioural RDM
+% Call → NCPG_RDMcorr
+    LDtcorr{ti} = NCPG_RDMcorr(wf2, LDt_byrun, wf2.curRDM, 'spearman','right', 0.05); % LDt from all CrossValidation runs
+    %% Separate CrossValidation Runs: Do Wilcoxon Sign-Rank for all the CrossValidation runs +  FDR correction for RDM correlation values
+% Call → NCPG_RDMCorr_stats
+    [sigFDR_idx{ti}, p_uncorrected{ti}, p_FDR{ti}, sig_FDR_meancorr{ti}]=NCPG_RDMCorr_stats(wf2, LDtcorr{ti});
+    %% Export FDR-corrected RDM correlation values into SUMA images
+% Call → NCPG_RDMcorr_plot
+    NCPG_RDMcorr_plot(wf2, LDtcorr{ti}, vo, fo, curtaskname, mask, sigFDR_idx{ti}, ds);
+    %% Create an LLM design from FDR corrected RDM correlation values to excel sheet for LLM
+% Call → NCPG_searchlightRDM2LLM
+    LLM_LDtcorr{ti}=NCPG_searchlightRDM2LLM(wf2, LDtcorr{ti}, sigFDR_idx{ti}, maskidx_subsesshemi, curtaskname, 'localizer');
+    LLM_LDtcorr_SepRun_alltasks=[LLM_LDtcorr_SepRun_alltasks; LLM_LDtcorr{ti} ];
+end
+end

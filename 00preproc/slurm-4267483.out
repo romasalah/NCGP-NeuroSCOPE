@@ -1,0 +1,3 @@
+Creating /home/jschultz/Castello_2021/workdir/tmp
+FATAL:   could not open image /home/jschultz/Castello_2021/singularity/fmriprep-1.0.3.simg: failed to retrieve path for /home/jschultz/Castello_2021/singularity/fmriprep-1.0.3.simg: lstat /home/jschultz/Castello_2021/singularity/fmriprep-1.0.3.simg: no such file or directory
+srun: error: node21: task 0: Exited with exit code 255

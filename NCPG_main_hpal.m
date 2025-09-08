@@ -1,0 +1,49 @@
+% ==========================================================================
+% Overall goal: Master driver for the hyperalignment-based, surface MVPA workflow: runs onset parsing, GLMs, localizer contrasts, surface projections, searchlight neighborhoods, LDt computation, group stats, and map export.
+% Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
+% Note: Added comments only; code logic unchanged.
+% ========n==================================================================
+% Call → NCPG_create_workflow: Build directory config and execution order for the overall analysis workflow.
+wf2=NCPG_create_workflow('faces', {'R'},'NCGP','hpal');
+% Call → NCPG_create_workflow: Build directory config and execution order for the overall analysis workflow.
+wfbehav=NCPG_create_workflow('localizer', {'R'},'BehavNCGP','hpal');
+% Call → NCPG_prepost: Compute pre vs post session differences (e.g., between-/within-group LDt change).
+[wf2.targetRSM_pre, wf2.targetRSM_post, taskname]=NCPG_prepost(wfbehav,0);
+%% Apply Hyperalignment (Generates NIML dset from GIFTI)
+%NCGP_hpal_map(wf2)
+%% Importing fMRIprep data From NIML dset to NIFTI
+NCPG_niml2nii(wf2);
+%% GLM: Faces:
+% Call → NCPG_onsets_faces: Parse and format the main task (faces) onsets and condition labels for first-level GLMs.
+[faces_runs]=NCPG_onsets_faces(wf2);
+% evel_fmriprep_hpal_glmpersub: Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
+NCPG_firstlevel_fmriprep_hpal_glmpersub(wf2, [0, 0], faces_runs);
+%% Update Settings
+wf2.origsubs=wf2.subs;wf2.subs={'group'};
+%% Searchlights: Neighbourhoods, Betas , and Residuals
+[ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
+    nbrorig_subsesshemi]=NCPG_surficial_neighborhood_persub(wf2, faces_runs, 0);
+ %% Calculate, visualise & save Discriminability between conditions (LDC)
+% >>>>>>>>>> Whole brain LDC <<<<<<<<
+% Call → NCPG_LDt_subses: Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
+[ldt_byrun, ldt_avgruns]=NCPGnodes,ldt_avgruns)
+% Call → NCPG_RDM_export: Export LDt (or RDM-like) matrices across sessions/hemispheres into files for later stats/LLM usage.
+FFXtbl_subsesshemi=NCPG_RDM_export(wf2, ldt_avgruns, fullnbr_subsesshemi, vo, fo, 'none', []);
+%% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
+% Call → NCPG_plot_lDt: Project function call
+%NCPG_plot_lDt(wf2,nbrhood_e in discriminability scores
+
+% >>>>>>>Whole Brain<<<<<<<<
+% Call → NCPG_LDt_stats: Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
+[slnames, stats, TFCE_stats]=NCPG_LDt_stats(wf2, 'none','TFCE', ds); % statistics
+% Call → NCPG_plot_MDS_LDC: Plot MDS (or similar) from LDt/LDC distances for visualization/QA.
+NCPG_plot_MDS_LDC(wf2,ldt_avgruns',fullnbr_subsesshemi, TFCE_stats, stats, slnames,'none','TFCE')
+
+%% Hypothesis 3: Searchlight RSA (LDt Correlation with behavioural RDMs)
+% >>>>>>>Whole Brain<<<<<<<<
+% Call → NCPG_LDtcorr_AvgRun: Aggregate correlation values across runs; prepare per-searchlight correlation statistics.
+[LLM_LDtcorr, LDtcorr, sigFDR_idx, q_values, LDtcorr_pval, sig_FDR_coef, corr_sesshemi, pval_sesshemi]=NCPG_LDtcorr_AvgRun(...
+    wf2, ds, ldt_avgruns, taskname, vo, fo, 'none', maskidx_subsesshemi);
+
+% Call → NCPG_surface_tfce: Run TFCE or surface-based cluster enhancement and output corrected maps.
+NCPG_surface_tfce(wf2, LDtcorr,corr_sesshemi, nbrorig_subsesshemi, 'none', maskidx_subsesshemi, taskname, ds,vo,fo)

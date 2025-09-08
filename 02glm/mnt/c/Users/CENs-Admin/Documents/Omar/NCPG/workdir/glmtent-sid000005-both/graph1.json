@@ -1,0 +1,995 @@
+{
+    "groups": [
+        {
+            "name": "Group_00001",
+            "procs": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35
+            ],
+            "total": 36
+        },
+        {
+            "name": "Group_00002",
+            "procs": [
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71
+            ],
+            "total": 36
+        }
+    ],
+    "links": [
+        {
+            "source": 12,
+            "target": 13,
+            "value": 1
+        },
+        {
+            "source": 62,
+            "target": 63,
+            "value": 1
+        },
+        {
+            "source": 46,
+            "target": 63,
+            "value": 1
+        },
+        {
+            "source": 15,
+            "target": 24,
+            "value": 1
+        },
+        {
+            "source": 41,
+            "target": 66,
+            "value": 1
+        },
+        {
+            "source": 51,
+            "target": 66,
+            "value": 1
+        },
+        {
+            "source": 8,
+            "target": 9,
+            "value": 1
+        },
+        {
+            "source": 25,
+            "target": 26,
+            "value": 1
+        },
+        {
+            "source": 13,
+            "target": 15,
+            "value": 1
+        },
+        {
+            "source": 0,
+            "target": 15,
+            "value": 1
+        },
+        {
+            "source": 14,
+            "target": 15,
+            "value": 1
+        },
+        {
+            "source": 44,
+            "target": 45,
+            "value": 1
+        },
+        {
+            "source": 17,
+            "target": 18,
+            "value": 1
+        },
+        {
+            "source": 15,
+            "target": 30,
+            "value": 1
+        },
+        {
+            "source": 5,
+            "target": 30,
+            "value": 1
+        },
+        {
+            "source": 36,
+            "target": 37,
+            "value": 1
+        },
+        {
+            "source": 20,
+            "target": 21,
+            "value": 1
+        },
+        {
+            "source": 9,
+            "target": 21,
+            "value": 1
+        },
+        {
+            "source": 2,
+            "target": 5,
+            "value": 1
+        },
+        {
+            "source": 3,
+            "target": 5,
+            "value": 1
+        },
+        {
+            "source": 4,
+            "target": 5,
+            "value": 1
+        },
+        {
+            "source": 57,
+            "target": 58,
+            "value": 1
+        },
+        {
+            "source": 7,
+            "target": 23,
+            "value": 1
+        },
+        {
+            "source": 22,
+            "target": 23,
+            "value": 1
+        },
+        {
+            "source": 27,
+            "target": 32,
+            "value": 1
+        },
+        {
+            "source": 31,
+            "target": 32,
+            "value": 1
+        },
+        {
+            "source": 21,
+            "target": 32,
+            "value": 1
+        },
+        {
+            "source": 19,
+            "target": 32,
+            "value": 1
+        },
+        {
+            "source": 66,
+            "target": 67,
+            "value": 1
+        },
+        {
+            "source": 65,
+            "target": 67,
+            "value": 1
+        },
+        {
+            "source": 26,
+            "target": 27,
+            "value": 1
+        },
+        {
+            "source": 15,
+            "target": 16,
+            "value": 1
+        },
+        {
+            "source": 5,
+            "target": 16,
+            "value": 1
+        },
+        {
+            "source": 41,
+            "target": 42,
+            "value": 1
+        },
+        {
+            "source": 56,
+            "target": 57,
+            "value": 1
+        },
+        {
+            "source": 51,
+            "target": 62,
+            "value": 1
+        },
+        {
+            "source": 1,
+            "target": 2,
+            "value": 1
+        },
+        {
+            "source": 10,
+            "target": 11,
+            "value": 1
+        },
+        {
+            "source": 56,
+            "target": 60,
+            "value": 1
+        },
+        {
+            "source": 41,
+            "target": 56,
+            "value": 1
+        },
+        {
+            "source": 51,
+            "target": 56,
+            "value": 1
+        },
+        {
+            "source": 42,
+            "target": 43,
+            "value": 1
+        },
+        {
+            "source": 41,
+            "target": 46,
+            "value": 1
+        },
+        {
+            "source": 5,
+            "target": 8,
+            "value": 1
+        },
+        {
+            "source": 15,
+            "target": 22,
+            "value": 1
+        },
+        {
+            "source": 48,
+            "target": 49,
+            "value": 1
+        },
+        {
+            "source": 67,
+            "target": 70,
+            "value": 1
+        },
+        {
+            "source": 54,
+            "target": 55,
+            "value": 1
+        },
+        {
+            "source": 24,
+            "target": 25,
+            "value": 1
+        },
+        {
+            "source": 6,
+            "target": 25,
+            "value": 1
+        },
+        {
+            "source": 18,
+            "target": 19,
+            "value": 1
+        },
+        {
+            "source": 11,
+            "target": 19,
+            "value": 1
+        },
+        {
+            "source": 53,
+            "target": 64,
+            "value": 1
+        },
+        {
+            "source": 63,
+            "target": 64,
+            "value": 1
+        },
+        {
+            "source": 16,
+            "target": 17,
+            "value": 1
+        },
+        {
+            "source": 42,
+            "target": 44,
+            "value": 1
+        },
+        {
+            "source": 51,
+            "target": 52,
+            "value": 1
+        },
+        {
+            "source": 25,
+            "target": 28,
+            "value": 1
+        },
+        {
+            "source": 23,
+            "target": 28,
+            "value": 1
+        },
+        {
+            "source": 41,
+            "target": 47,
+            "value": 1
+        },
+        {
+            "source": 31,
+            "target": 34,
+            "value": 1
+        },
+        {
+            "source": 64,
+            "target": 65,
+            "value": 1
+        },
+        {
+            "source": 8,
+            "target": 10,
+            "value": 1
+        },
+        {
+            "source": 43,
+            "target": 61,
+            "value": 1
+        },
+        {
+            "source": 60,
+            "target": 61,
+            "value": 1
+        },
+        {
+            "source": 16,
+            "target": 20,
+            "value": 1
+        },
+        {
+            "source": 53,
+            "target": 54,
+            "value": 1
+        },
+        {
+            "source": 32,
+            "target": 33,
+            "value": 1
+        },
+        {
+            "source": 55,
+            "target": 68,
+            "value": 1
+        },
+        {
+            "source": 59,
+            "target": 68,
+            "value": 1
+        },
+        {
+            "source": 67,
+            "target": 68,
+            "value": 1
+        },
+        {
+            "source": 61,
+            "target": 68,
+            "value": 1
+        },
+        {
+            "source": 5,
+            "target": 6,
+            "value": 1
+        },
+        {
+            "source": 45,
+            "target": 59,
+            "value": 1
+        },
+        {
+            "source": 58,
+            "target": 59,
+            "value": 1
+        },
+        {
+            "source": 5,
+            "target": 7,
+            "value": 1
+        },
+        {
+            "source": 69,
+            "target": 71,
+            "value": 1
+        },
+        {
+            "source": 68,
+            "target": 71,
+            "value": 1
+        },
+        {
+            "source": 70,
+            "target": 71,
+            "value": 1
+        },
+        {
+            "source": 47,
+            "target": 53,
+            "value": 1
+        },
+        {
+            "source": 52,
+            "target": 53,
+            "value": 1
+        },
+        {
+            "source": 30,
+            "target": 31,
+            "value": 1
+        },
+        {
+            "source": 29,
+            "target": 31,
+            "value": 1
+        },
+        {
+            "source": 49,
+            "target": 51,
+            "value": 1
+        },
+        {
+            "source": 38,
+            "target": 51,
+            "value": 1
+        },
+        {
+            "source": 50,
+            "target": 51,
+            "value": 1
+        },
+        {
+            "source": 34,
+            "target": 35,
+            "value": 1
+        },
+        {
+            "source": 32,
+            "target": 35,
+            "value": 1
+        },
+        {
+            "source": 33,
+            "target": 35,
+            "value": 1
+        },
+        {
+            "source": 28,
+            "target": 29,
+            "value": 1
+        },
+        {
+            "source": 37,
+            "target": 41,
+            "value": 1
+        },
+        {
+            "source": 39,
+            "target": 41,
+            "value": 1
+        },
+        {
+            "source": 40,
+            "target": 41,
+            "value": 1
+        },
+        {
+            "source": 68,
+            "target": 69,
+            "value": 1
+        }
+    ],
+    "maxN": 36,
+    "nodes": [
+        {
+            "group": 1,
+            "name": "0_grab_confs",
+            "report": "/glm_wf/datasource_stranger/_hemifield_L/grab_confs/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_L/grab_confs/result_grab_confs.pklz"
+        },
+        {
+            "group": 1,
+            "name": "1_grab_derivs",
+            "report": "/glm_wf/datasource_familiar/_hemifield_L/grab_derivs/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_L/grab_derivs/result_grab_derivs.pklz"
+        },
+        {
+            "group": 1,
+            "name": "2_filter_hemi",
+            "report": "/glm_wf/datasource_familiar/_hemifield_L/filter_hemi/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_L/filter_hemi/result_filter_hemi.pklz"
+        },
+        {
+            "group": 1,
+            "name": "3_grab_events",
+            "report": "/glm_wf/datasource_familiar/_hemifield_L/grab_events/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_L/grab_events/result_grab_events.pklz"
+        },
+        {
+            "group": 1,
+            "name": "4_grab_confs",
+            "report": "/glm_wf/datasource_familiar/_hemifield_L/grab_confs/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_L/grab_confs/result_grab_confs.pklz"
+        },
+        {
+            "group": 1,
+            "name": "5_sort_files",
+            "report": "/glm_wf/datasource_familiar/_hemifield_L/sort_files/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_L/sort_files/result_sort_files.pklz"
+        },
+        {
+            "group": 1,
+            "name": "6_motion_fam",
+            "report": "/glm_wf/_hemifield_L/motion_fam/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/motion_fam/result_motion_fam.pklz"
+        },
+        {
+            "group": 1,
+            "name": "7_compcor_fam",
+            "report": "/glm_wf/_hemifield_L/compcor_fam/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/compcor_fam/result_compcor_fam.pklz"
+        },
+        {
+            "group": 1,
+            "name": "8_make_afnistim",
+            "report": "/glm_wf/afnistim_fam/_hemifield_L/make_afnistim/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_L/make_afnistim/result_make_afnistim.pklz"
+        },
+        {
+            "group": 1,
+            "name": "9_get_stimlabels",
+            "report": "/glm_wf/afnistim_fam/_hemifield_L/get_stimlabels/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_L/get_stimlabels/result_get_stimlabels.pklz"
+        },
+        {
+            "group": 1,
+            "name": "10_truncate_times",
+            "report": "/glm_wf/afnistim_fam/_hemifield_L/truncate_times/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_L/truncate_times/result_truncate_times.pklz"
+        },
+        {
+            "group": 1,
+            "name": "11_add_model",
+            "report": "/glm_wf/afnistim_fam/_hemifield_L/add_model/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_L/add_model/result_add_model.pklz"
+        },
+        {
+            "group": 1,
+            "name": "12_grab_derivs",
+            "report": "/glm_wf/datasource_stranger/_hemifield_L/grab_derivs/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_L/grab_derivs/result_grab_derivs.pklz"
+        },
+        {
+            "group": 1,
+            "name": "13_filter_hemi",
+            "report": "/glm_wf/datasource_stranger/_hemifield_L/filter_hemi/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_L/filter_hemi/result_filter_hemi.pklz"
+        },
+        {
+            "group": 1,
+            "name": "14_grab_events",
+            "report": "/glm_wf/datasource_stranger/_hemifield_L/grab_events/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_L/grab_events/result_grab_events.pklz"
+        },
+        {
+            "group": 1,
+            "name": "15_sort_files",
+            "report": "/glm_wf/datasource_stranger/_hemifield_L/sort_files/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_L/sort_files/result_sort_files.pklz"
+        },
+        {
+            "group": 1,
+            "name": "16_make_afnistim",
+            "report": "/glm_wf/afnistim_str/_hemifield_L/make_afnistim/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_L/make_afnistim/result_make_afnistim.pklz"
+        },
+        {
+            "group": 1,
+            "name": "17_truncate_times",
+            "report": "/glm_wf/afnistim_str/_hemifield_L/truncate_times/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_L/truncate_times/result_truncate_times.pklz"
+        },
+        {
+            "group": 1,
+            "name": "18_add_model",
+            "report": "/glm_wf/afnistim_str/_hemifield_L/add_model/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_L/add_model/result_add_model.pklz"
+        },
+        {
+            "group": 1,
+            "name": "19_afnistim_time_merge",
+            "report": "/glm_wf/_hemifield_L/afnistim_time_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/afnistim_time_merge/result_afnistim_time_merge.pklz"
+        },
+        {
+            "group": 1,
+            "name": "20_get_stimlabels",
+            "report": "/glm_wf/afnistim_str/_hemifield_L/get_stimlabels/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_L/get_stimlabels/result_get_stimlabels.pklz"
+        },
+        {
+            "group": 1,
+            "name": "21_afnistim_label_merge",
+            "report": "/glm_wf/_hemifield_L/afnistim_label_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/afnistim_label_merge/result_afnistim_label_merge.pklz"
+        },
+        {
+            "group": 1,
+            "name": "22_compcor_str",
+            "report": "/glm_wf/_hemifield_L/compcor_str/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/compcor_str/result_compcor_str.pklz"
+        },
+        {
+            "group": 1,
+            "name": "23_compcor_merge",
+            "report": "/glm_wf/_hemifield_L/compcor_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/compcor_merge/result_compcor_merge.pklz"
+        },
+        {
+            "group": 1,
+            "name": "24_motion_str",
+            "report": "/glm_wf/_hemifield_L/motion_str/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/motion_str/result_motion_str.pklz"
+        },
+        {
+            "group": 1,
+            "name": "25_motion_merge",
+            "report": "/glm_wf/_hemifield_L/motion_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/motion_merge/result_motion_merge.pklz"
+        },
+        {
+            "group": 1,
+            "name": "26_censor",
+            "report": "/glm_wf/afnipreprocess/_hemifield_L/censor/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_L/censor/result_censor.pklz"
+        },
+        {
+            "group": 1,
+            "name": "27_censor_stack",
+            "report": "/glm_wf/_hemifield_L/censor_stack/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/censor_stack/result_censor_stack.pklz"
+        },
+        {
+            "group": 1,
+            "name": "28_zip",
+            "report": "/glm_wf/afnipreprocess/_hemifield_L/zip/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_L/zip/result_zip.pklz"
+        },
+        {
+            "group": 1,
+            "name": "29_merge_regressors",
+            "report": "/glm_wf/afnipreprocess/_hemifield_L/merge_regressors/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_L/merge_regressors/result_merge_regressors.pklz"
+        },
+        {
+            "group": 1,
+            "name": "30_runfile_merge",
+            "report": "/glm_wf/_hemifield_L/runfile_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/runfile_merge/result_runfile_merge.pklz"
+        },
+        {
+            "group": 1,
+            "name": "31_tproject",
+            "report": "/glm_wf/afnipreprocess/_hemifield_L/tproject/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_L/tproject/result_tproject.pklz"
+        },
+        {
+            "group": 1,
+            "name": "32_deconvolve",
+            "report": "/glm_wf/afnimodel/_hemifield_L/deconvolve/_report/report.rst",
+            "result": "/glm_wf/afnimodel/_hemifield_L/deconvolve/result_deconvolve.pklz"
+        },
+        {
+            "group": 1,
+            "name": "33_plotmatrix",
+            "report": "/glm_wf/_hemifield_L/plotmatrix/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/plotmatrix/result_plotmatrix.pklz"
+        },
+        {
+            "group": 1,
+            "name": "34_report",
+            "report": "/glm_wf/_hemifield_L/report/_report/report.rst",
+            "result": "/glm_wf/_hemifield_L/report/result_report.pklz"
+        },
+        {
+            "group": 1,
+            "name": "35_datasink",
+            "report": "/_hemifield_L/datasink/_report/report.rst",
+            "result": "/_hemifield_L/datasink/result_datasink.pklz"
+        },
+        {
+            "group": 2,
+            "name": "36_grab_derivs",
+            "report": "/glm_wf/datasource_familiar/_hemifield_R/grab_derivs/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_R/grab_derivs/result_grab_derivs.pklz"
+        },
+        {
+            "group": 2,
+            "name": "37_filter_hemi",
+            "report": "/glm_wf/datasource_familiar/_hemifield_R/filter_hemi/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_R/filter_hemi/result_filter_hemi.pklz"
+        },
+        {
+            "group": 2,
+            "name": "38_grab_confs",
+            "report": "/glm_wf/datasource_stranger/_hemifield_R/grab_confs/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_R/grab_confs/result_grab_confs.pklz"
+        },
+        {
+            "group": 2,
+            "name": "39_grab_events",
+            "report": "/glm_wf/datasource_familiar/_hemifield_R/grab_events/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_R/grab_events/result_grab_events.pklz"
+        },
+        {
+            "group": 2,
+            "name": "40_grab_confs",
+            "report": "/glm_wf/datasource_familiar/_hemifield_R/grab_confs/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_R/grab_confs/result_grab_confs.pklz"
+        },
+        {
+            "group": 2,
+            "name": "41_sort_files",
+            "report": "/glm_wf/datasource_familiar/_hemifield_R/sort_files/_report/report.rst",
+            "result": "/glm_wf/datasource_familiar/_hemifield_R/sort_files/result_sort_files.pklz"
+        },
+        {
+            "group": 2,
+            "name": "42_make_afnistim",
+            "report": "/glm_wf/afnistim_fam/_hemifield_R/make_afnistim/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_R/make_afnistim/result_make_afnistim.pklz"
+        },
+        {
+            "group": 2,
+            "name": "43_get_stimlabels",
+            "report": "/glm_wf/afnistim_fam/_hemifield_R/get_stimlabels/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_R/get_stimlabels/result_get_stimlabels.pklz"
+        },
+        {
+            "group": 2,
+            "name": "44_truncate_times",
+            "report": "/glm_wf/afnistim_fam/_hemifield_R/truncate_times/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_R/truncate_times/result_truncate_times.pklz"
+        },
+        {
+            "group": 2,
+            "name": "45_add_model",
+            "report": "/glm_wf/afnistim_fam/_hemifield_R/add_model/_report/report.rst",
+            "result": "/glm_wf/afnistim_fam/_hemifield_R/add_model/result_add_model.pklz"
+        },
+        {
+            "group": 2,
+            "name": "46_compcor_fam",
+            "report": "/glm_wf/_hemifield_R/compcor_fam/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/compcor_fam/result_compcor_fam.pklz"
+        },
+        {
+            "group": 2,
+            "name": "47_motion_fam",
+            "report": "/glm_wf/_hemifield_R/motion_fam/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/motion_fam/result_motion_fam.pklz"
+        },
+        {
+            "group": 2,
+            "name": "48_grab_derivs",
+            "report": "/glm_wf/datasource_stranger/_hemifield_R/grab_derivs/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_R/grab_derivs/result_grab_derivs.pklz"
+        },
+        {
+            "group": 2,
+            "name": "49_filter_hemi",
+            "report": "/glm_wf/datasource_stranger/_hemifield_R/filter_hemi/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_R/filter_hemi/result_filter_hemi.pklz"
+        },
+        {
+            "group": 2,
+            "name": "50_grab_events",
+            "report": "/glm_wf/datasource_stranger/_hemifield_R/grab_events/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_R/grab_events/result_grab_events.pklz"
+        },
+        {
+            "group": 2,
+            "name": "51_sort_files",
+            "report": "/glm_wf/datasource_stranger/_hemifield_R/sort_files/_report/report.rst",
+            "result": "/glm_wf/datasource_stranger/_hemifield_R/sort_files/result_sort_files.pklz"
+        },
+        {
+            "group": 2,
+            "name": "52_motion_str",
+            "report": "/glm_wf/_hemifield_R/motion_str/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/motion_str/result_motion_str.pklz"
+        },
+        {
+            "group": 2,
+            "name": "53_motion_merge",
+            "report": "/glm_wf/_hemifield_R/motion_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/motion_merge/result_motion_merge.pklz"
+        },
+        {
+            "group": 2,
+            "name": "54_censor",
+            "report": "/glm_wf/afnipreprocess/_hemifield_R/censor/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_R/censor/result_censor.pklz"
+        },
+        {
+            "group": 2,
+            "name": "55_censor_stack",
+            "report": "/glm_wf/_hemifield_R/censor_stack/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/censor_stack/result_censor_stack.pklz"
+        },
+        {
+            "group": 2,
+            "name": "56_make_afnistim",
+            "report": "/glm_wf/afnistim_str/_hemifield_R/make_afnistim/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_R/make_afnistim/result_make_afnistim.pklz"
+        },
+        {
+            "group": 2,
+            "name": "57_truncate_times",
+            "report": "/glm_wf/afnistim_str/_hemifield_R/truncate_times/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_R/truncate_times/result_truncate_times.pklz"
+        },
+        {
+            "group": 2,
+            "name": "58_add_model",
+            "report": "/glm_wf/afnistim_str/_hemifield_R/add_model/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_R/add_model/result_add_model.pklz"
+        },
+        {
+            "group": 2,
+            "name": "59_afnistim_time_merge",
+            "report": "/glm_wf/_hemifield_R/afnistim_time_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/afnistim_time_merge/result_afnistim_time_merge.pklz"
+        },
+        {
+            "group": 2,
+            "name": "60_get_stimlabels",
+            "report": "/glm_wf/afnistim_str/_hemifield_R/get_stimlabels/_report/report.rst",
+            "result": "/glm_wf/afnistim_str/_hemifield_R/get_stimlabels/result_get_stimlabels.pklz"
+        },
+        {
+            "group": 2,
+            "name": "61_afnistim_label_merge",
+            "report": "/glm_wf/_hemifield_R/afnistim_label_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/afnistim_label_merge/result_afnistim_label_merge.pklz"
+        },
+        {
+            "group": 2,
+            "name": "62_compcor_str",
+            "report": "/glm_wf/_hemifield_R/compcor_str/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/compcor_str/result_compcor_str.pklz"
+        },
+        {
+            "group": 2,
+            "name": "63_compcor_merge",
+            "report": "/glm_wf/_hemifield_R/compcor_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/compcor_merge/result_compcor_merge.pklz"
+        },
+        {
+            "group": 2,
+            "name": "64_zip",
+            "report": "/glm_wf/afnipreprocess/_hemifield_R/zip/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_R/zip/result_zip.pklz"
+        },
+        {
+            "group": 2,
+            "name": "65_merge_regressors",
+            "report": "/glm_wf/afnipreprocess/_hemifield_R/merge_regressors/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_R/merge_regressors/result_merge_regressors.pklz"
+        },
+        {
+            "group": 2,
+            "name": "66_runfile_merge",
+            "report": "/glm_wf/_hemifield_R/runfile_merge/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/runfile_merge/result_runfile_merge.pklz"
+        },
+        {
+            "group": 2,
+            "name": "67_tproject",
+            "report": "/glm_wf/afnipreprocess/_hemifield_R/tproject/_report/report.rst",
+            "result": "/glm_wf/afnipreprocess/_hemifield_R/tproject/result_tproject.pklz"
+        },
+        {
+            "group": 2,
+            "name": "68_deconvolve",
+            "report": "/glm_wf/afnimodel/_hemifield_R/deconvolve/_report/report.rst",
+            "result": "/glm_wf/afnimodel/_hemifield_R/deconvolve/result_deconvolve.pklz"
+        },
+        {
+            "group": 2,
+            "name": "69_plotmatrix",
+            "report": "/glm_wf/_hemifield_R/plotmatrix/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/plotmatrix/result_plotmatrix.pklz"
+        },
+        {
+            "group": 2,
+            "name": "70_report",
+            "report": "/glm_wf/_hemifield_R/report/_report/report.rst",
+            "result": "/glm_wf/_hemifield_R/report/result_report.pklz"
+        },
+        {
+            "group": 2,
+            "name": "71_datasink",
+            "report": "/_hemifield_R/datasink/_report/report.rst",
+            "result": "/_hemifield_R/datasink/result_datasink.pklz"
+        }
+    ]
+}

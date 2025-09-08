@@ -1,0 +1,134 @@
+% ==========================================================================
+% Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
+% Note: Comments added only at the top; code unchanged.
+% ==========================================================================
+function firstleveldir=NCPG_firstlevel_fmriprep_localizer(wf,HRFderivatives, runscell)
+%% FFX batch code for SocialDecision experiments Summer 2017
+% O. S. Ahmed based on J Schultz based on code by Paul Jung
+% ----------- Main settings -----------------------------------------------
+mainFolder = wf.mainpath;
+modeltype=wf.modeltype;
+TR = 2.5;
+% Subjects to do:
+confnames1={'trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z',...
+    'a_comp_cor_00', 'a_comp_cor_01', 'a_comp_cor_02', 'a_comp_cor_03', 'a_comp_cor_04', 'a_comp_cor_05'};
+confnames2={'X', 'Y', 'Z', 'RotX', 'RotY', 'RotZ',...
+    'aCompCor00', 'aCompCor01', 'aCompCor02', 'aCompCor03', 'aCompCor04', 'aCompCor05'};
+confnameopts={confnames1, confnames2};
+confnames=confnameopts{1};
+subsesruns={};
+for  subi=1:length(wf.subs)
+    cursubruns=runscell{subi};
+    subsesruns=vertcat(subsesruns, horzcat(repmat(wf.subs(subi),size(cursubruns,1),1), cursubruns));
+end
+%% Setup finished, get to work
+for hi =1:length(wf.hemis)
+    curhemi=wf.hemis{hi};
+    matlabbatch={};
+    for runi =1:size(subsesruns,1)
+        cursub=subsesruns{runi,1};
+        cursess= subsesruns{runi,2};
+        currun=subsesruns{runi,3};
+        cursesdir= [mainFolder filesep 'derivatives' filesep cursub filesep cursess filesep 'func' filesep];
+        curses_datadir= [mainFolder filesep 'data' filesep cursub filesep cursess filesep 'func' filesep];
+
+        runprefix=[cursub '_' cursess '_task-' wf.task '_' currun];
+        switch wf.smooth
+            case 'S0'
+                smext='*';
+            otherwise
+                smext=['*' wf.smooth '*'];
+        end
+        % Get scans
+        currundir=[cursesdir filesep 'temp'];
+        fqry=[currundir filesep  runprefix '*.' curhemi '.'  smext];
+        scanListing = dir( [fqry '.nii'] );
+        nonmaskidx=~contains({scanListing.name}, 'mask');
+        scanListing=scanListing(nonmaskidx);
+        smoothedidx = cellfun(@isempty, regexp({scanListing.name},'_S\d_'));
+        nonsmoothedidx = ~smoothedidx;
+        if strcmpi (wf.smooth, 'S0')
+            scanListing=scanListing(nonsmoothedidx);
+        end
+        scanInput = cell( length( scanListing ), 1 );
+        for scanFile = 1 : length( scanListing)
+            curfiledir= dir([fqry '_' num2str(scanFile) '.nii']);
+            scanInput{ scanFile }= [curfiledir(1).folder filesep curfiledir(1).name ',1'];
+        end
+
+        fprintf('fMRI data folder: %s\n',currundir)
+
+
+        matlabbatch{1}.spm.stats.fmri_spec.sess(runi).scans = scanInput;
+        multiregFile = dir( [cursesdir runprefix  '*confounds.tsv' ] );
+        sessMultiregFile = [multiregFile(1).folder filesep multiregFile.name];
+        minregfn=strrep(sessMultiregFile,'confounds.tsv','confounds_min.txt');
+        [confall, header, ~]=tsvread(sessMultiregFile);
+        keep_cols = ismember(header, confnameopts{1});
+        if sum(keep_cols)==0
+            confnames=confnameopts{2};
+            keep_cols = ismember(header, confnames);
+        end
+        conf_selected = confall(2:end, keep_cols);
+        conf_selected=array2table(conf_selected, 'VariableNames', confnames);
+        writetable(conf_selected, minregfn, 'WriteVariableNames', false, 'Delimiter', '\t');
+        % Get Onsets
+
+        onsetstable = readtable([cursesdir filesep runprefix '_events.xlsx']);
+        condition_names=unique(onsetstable.trial_type);
+        conData={};
+        for ci=1:length(condition_names)
+            conData{ci}.tasks = onsetstable.trial_type(strcmp(onsetstable.trial_type,condition_names{ci}));
+            temp_onsets= onsetstable.onset(strcmp(onsetstable.trial_type,condition_names{ci}));
+            if isa(onsetstable.onset(1),'char') | isa(onsetstable.onset(1),'cell')
+                temp_onsets=str2double(temp_onsets);
+            end
+            temp_durations=onsetstable.duration(strcmp(onsetstable.trial_type,condition_names{ci}));
+            if isa(onsetstable.duration(1),'char') | isa(onsetstable.duration(1),'cell')
+                temp_durations=str2double(temp_durations);
+            end
+            conData{ci}.onsets=temp_onsets;
+            conData{ci}.durations = temp_durations;
+        end
+        % add session-specific infos
+        for c = 1:length(condition_names)
+            matlabbatch{1}.spm.stats.fmri_spec.sess(runi).cond(c).name = conData{c}.tasks{1};
+            matlabbatch{1}.spm.stats.fmri_spec.sess(runi).cond(c).onset = conData{c}.onsets;
+            matlabbatch{1}.spm.stats.fmri_spec.sess(runi).cond(c).duration = conData{c}.durations;
+            matlabbatch{1}.spm.stats.fmri_spec.sess(runi).cond(c).tmod = 0;
+        end
+        matlabbatch{1}.spm.stats.fmri_spec.sess(runi).regress = struct('name', {}, 'val', {});
+        matlabbatch{1}.spm.stats.fmri_spec.sess(runi).multi_reg = {minregfn};
+        matlabbatch{1}.spm.stats.fmri_spec.sess(runi).hpf = 128;
+    end
+    matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
+    matlabbatch{1}.spm.stats.fmri_spec.timing.RT = TR;
+    matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
+    matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = 1;
+    matlabbatch{1}.spm.stats.fmri_spec.fact = struct('name', {}, 'levels', {});
+    matlabbatch{1}.spm.stats.fmri_spec.bases.hrf.derivs  = HRFderivatives;
+    matlabbatch{1}.spm.stats.fmri_spec.global = 'None';
+    matlabbatch{1}.spm.stats.fmri_spec.mask= {''};
+    matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
+    spmmatdir=[mainFolder 'derivatives' filesep wf.glm filesep 'group' filesep wf.pre filesep 'task-' wf.task '_hemi-' wf.hemis{1} '_smooth-' wf.smooth];
+    matlabbatch{1}.spm.stats.fmri_spec.dir= { spmmatdir };
+    matlabbatch{2}.spm.stats.fmri_est.spmmat = {[spmmatdir filesep 'SPM.mat']};
+    matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
+    matlabbatch{2}.spm.stats.fmri_est.write_residuals = 0;
+    switch wf.alignment
+        case 'hpal'
+            matlabbatch{1}.spm.stats.fmri_spec.mthresh = 1;
+            % estimate model
+            matlabbatch{2}.spm_skip_maskthreshold=1;
+        case 'aal'
+            matlabbatch{1}.spm.stats.fmri_spec.mthresh = 0.8;
+            % estimate model
+            matlabbatch{2}.spm_skip_maskthreshold=0;
+    end
+    try mkdir(spmmatdir); end
+    save([spmmatdir '/matlabbatch'],'matlabbatch');
+    spm( 'defaults', 'fmri' );
+    spm_jobman( 'initcfg' );
+    spm_jobman( 'run', matlabbatch );
+end
+end

@@ -1,0 +1,35 @@
+% ==========================================================================
+% Overall goal (user-provided): Overall goal: Sets the default paths based on the machine
+% Note: Comments only; code unchanged.
+% ==========================================================================
+% ==========================================================================
+% Overall goal: Sets the default paths based on the machine
+% Note:
+% ==========================================================================
+% Function signature detected
+function [homedir,pcnum]=NCPG_osdir(exp)
+pcinfo=computer;
+% Section: if-block starts
+if strcmp(pcinfo, 'PCWIN64')
+% Section: switch-block starts
+    switch exp
+        case 'BehavNCGP'
+            homedir='F:\NCGP\BehavNCGP\';
+        case 'NCGP'
+            homedir='F:\NCGP\data\';
+    end
+    pcnum=2;
+% Section: else-block starts
+else
+% Section: switch-block starts
+    switch exp
+% Section: case-block starts
+        case 'Behav'
+            homedir='/Volumes/EVO8602TB/NCPG/Behav/';
+% Section: case-block starts
+        case 'NCGP'
+            homedir='/Volumes/EVO8602TB/NCPG/BIDS/Main1/';
+    end
+    pcnum=1;
+end
+end

@@ -1,0 +1,7 @@
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/debruijn.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/edit_cache.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/rebuild_cache.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/list_install_components.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/install.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/install/local.dir
+/Volumes/EVO8602TB/NCPG/AnalysisScripts/DeBruijn-master/CMakeFiles/install/strip.dir
