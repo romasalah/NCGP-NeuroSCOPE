@@ -1,12 +1,5 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Calculates the group identification score and reverse scores questions 3, 4, 9, 12 then Calculates the mean
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Calculates the group identification score and reverse scores questions 3, 4, 9, 12 then Calculates the mean
-% Note:
-% ==========================================================================
-% Function signature detected
+% Overall goal: Calculates the group identification score and reverse
+% scores questions 3, 4, 9, 12 then Calculates the mean
 function [identclass, identtable]=NCPG_identscore(subsfolder,subs)
 identmean=[];
 % Section: for-block starts
@@ -26,11 +19,9 @@ for subi=1:length(subs)
     allgpident_corrected([3 4 9 12],subi)=(minscore-rcwrong)+maxscore;
     identmean(end+1,2)=mean(allgpident_corrected(:,subi)); % get the average value of all the 16 group identity questions for each subject.
     identmean(end,1)=str2num(cursub);
-
-% Section: else-block starts
     else
         disp(['No separate scores file found for participant' ])
-    end 
+    end
 end
 identtable=array2table(identmean, 'VariableNames', {'sub', 'score'});
 %writetable(identtable, [subsfolder 'NCGPBehav_identscores.xlsx']);

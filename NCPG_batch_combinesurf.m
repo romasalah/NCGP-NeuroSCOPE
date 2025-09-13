@@ -1,21 +1,9 @@
 % ==========================================================================
-% Overall goal (user-provided): Overall goal: batch file to combine 2 hemispheres (surface-based) into one sutface. Either using surfing toolbox or using AFNI
+% Overall goal (user-provided): Overall goal: batch file to combine 2 hemispheres
+% (surface-based) into one sutface. Either using surfing toolbox or using AFNI
 % Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: batch file to combine 2 hemispheres (surface-based) into one sutface. Either using surfing toolbox or using AFNI
-% ==========================================================================
 % Function signature detected
 function NCPG_batch_combinesurf(wf, subjsurfacepath, surffiles, method, ico)
-% Section: if-block starts
-if isempty(surffiles)
-    ico=100;
-    surffiles={['ico' num2str(ico) '_rh.pial_al.asc'],...
-        ['ico' num2str(ico) '_rh.semiinflated_al.asc'],...
-        ['ico' num2str(ico) '_rh.intermediate_al.asc'],...
-        ['ico' num2str(ico) '_rh.inflated_al.asc'],...
-        ['ico' num2str(ico) '_rh.smoothwm_al.asc']};
-end
 % Section: for-block starts
 for i=1:length(surffiles)
     rt=[subjsurfacepath filesep surffiles{i}];

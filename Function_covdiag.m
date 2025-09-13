@@ -1,8 +1,10 @@
+%% This function is imported from Tsantani et al. 2019 published code
+% related to the following paper https://doi.org/10.1016/j.neuroimage.2019.07.017
+% Overall goal: % Regularises the estimate of the covariance matrix accroding to the
+%% optimal shrikage method as outline in Ledoit& Wolf (2005). Shrinks towards
+% diagonal matrix
 function [sigma,shrinkage,sample]=covdiag(x,df,varargin)
 % function [sigma,shrinkage]=covdiag(x,df)
-% Regularises the estimate of the covariance matrix accroding to the 
-% optimal shrikage method as outline in Ledoit& Wolf (2005). 
-% Shrinks towards diagonal matrix
 % INPUT: 
 %       x     (t*n): t observations on p random variables
 %       df    (1*1): optional: degrees of freedom, if not t-1 

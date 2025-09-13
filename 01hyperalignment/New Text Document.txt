@@ -1,1 +1,0 @@
-/mnt/C/Users/CENs-Admin/Documents/Omar/Castello_2021/scripts/01hyperalignment/run_preproc_hpal_singularity.sh sub-sid000005 fsaverage6

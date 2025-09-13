@@ -1,28 +1,17 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: takes similarity ratings of personality, social life and physical apperance from before and after the intervention and calculates the difference
-% Note: Added comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: takes similarity ratings of personality, social life and physical apperance from before and after the intervention and calculates the difference
-% Note: 
-% ==========================================================================
-% Function signature
+% Overall goal: takes similarity ratings of personality, social life and
+% physical apperance from before and after the intervention and calculates the difference
 function [alltasksmat,allingpsim_vals,alloutgpsim_vals,allbtgpsim_vals,allingpsim_distavg,alloutgpsim_distavg,allbtgpsim_distavg]=NCPG_facesim_ratings_alltasks(subs,allfacesimtbl,allgpnames,timedata,exp)
-% Section: if-block starts
 if ~strcmpi(timedata,'postminuspre')
     alltaskssim={};
-% Section: for-block starts
     for subi=1:length(subs)
         subid=num2str(subs(subi));
         gpnames=allgpnames{subi};
         facesimtbl=allfacesimtbl{subi};
-% Section: if-block starts
         if size(facesimtbl,2)==8
             locs=[4,5,6,4,5,7,8];
             fsim=table2cell(facesimtbl(:,4:6));
             trsim1=table2cell(facesimtbl(:,[4,5,7]));
             trsim2=table2cell(facesimtbl(:,[4,5,8]));
-% Section: elseif-block starts
         elseif size(facesimtbl,2)==11
             locs=[5,6,7,8,9,10,11];
             fsim=table2cell(facesimtbl(:,5:7));

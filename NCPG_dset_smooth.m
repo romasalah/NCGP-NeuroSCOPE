@@ -1,8 +1,3 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Smoothes a NIML surface dataset using freesurfer's HEAT_07 method with a custom kernelsize.
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
 % Overall goal: Smoothes a NIML surface dataset using freesurfer's HEAT_07 method with a custom kernelsize.
 % Note: Comments added only at the top; code unchanged.
 % ==========================================================================

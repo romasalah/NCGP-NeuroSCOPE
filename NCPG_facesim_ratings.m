@@ -1,19 +1,9 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: takes similarity ratings of personality, social life and physical apperance from before and after the intervention and calculates the difference
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: takes similarity ratings of personality, social life and physical apperance from before and after the intervention and calculates the difference
-% Note: 
-% ==========================================================================
-% Function signature detected
+% Overall goal: takes similarity ratings of personality, social life and physical apperance
+% from before and after the intervention and calculates the difference
 function [alltasksmat,allingpsim_vals,alloutgpsim_vals,allbtgpsim_vals,allingpsim_distavg,alloutgpsim_distavg,allbtgpsim_distavg]=NCPGH_facesim_ratings(subs,allfacesimtbl,allgpnames,timedata)
-% Section: switch-block starts
 switch timedata
-% Section: case-block starts
     case 'pre'
         corrlist0=zeros(8,8,length(subs));
-% Section: for-block starts
         for subi=1:length(subs)
             subid=num2str(subs(subi));
             facesimtbl=allfacesimtbl{subi};
@@ -24,11 +14,8 @@ switch timedata
             c=0;
             d=0;
             e=0;
-% Section: for-block starts
             for ir=1:8
-% Section: for-block starts
                 for ic=1:8
-% Section: if-block starts
                     if ic<ir
                         irname=gpnames{ir};
                         icname=gpnames{ic};
@@ -40,11 +27,8 @@ switch timedata
             end
             alltasksmat{1}=corrlist0;
         end
-
-% Section: case-block starts
     case 'post'
         corrlist0=zeros(8,8,length(subs));
-% Section: for-block starts
         for subi=1:length(subs)
             subid=num2str(subs(subi));
             facesimtbl=allfacesimtbl{subi};
@@ -53,18 +37,13 @@ switch timedata
             trsim1=table2cell(facesimtbl(:,[8:10]));
             trsim2=table2cell(facesimtbl(:,[8:9,11]));
             alltaskssim={fsim, trsim1, trsim2};
-
-% Section: for-block starts
             for tsi= find(~cellfun(@isempty,alltaskssim))
                 curtasktb=alltaskssim{tsi};
                 c=0;
                 d=0;
                 e=0;
-% Section: for-block starts
                 for ir=1:8
-% Section: for-block starts
                     for ic=1:8
-% Section: if-block starts
                         if ic<ir
                             irname=gpnames{ir};
                             icname=gpnames{ic};
@@ -76,14 +55,11 @@ switch timedata
                 alltasksmat{tsi}=corrlist0;
             end
         end
-% Section: case-block starts
     case 'postminuspre'
         corrlist0=zeros(8,8,length(subs));
         allingpsim=cell(1,1);
         alloutgpsim=cell(1,1);
         allbtgpsim=cell(1,1);
-   
-% Section: for-block starts
         for subi=1:length(subs)
             subid=num2str(subs(subi));
             gpnames=allgpnames{subi};
@@ -99,11 +75,8 @@ switch timedata
             c=0;
             d=0;
             e=0;
-% Section: for-block starts
             for ir=1:8
-% Section: for-block starts
                 for ic=1:8
-% Section: if-block starts
                     if ic<ir
                         irname=gpnames{ir};
                         icname=gpnames{ic};
@@ -115,12 +88,10 @@ switch timedata
             alltasksmat{1}=corrlist0;
         end
 end
-% Section: for-block starts
 for tsi=1:length(alltaskssim)
     allingpsim_vals{tsi}=[];
     alloutgpsim_vals{tsi}=[];
     allbtgpsim_vals{tsi}=[];
-% Section: for-block starts
     for subi =1:size(alltasksmat{tsi},3)
         cursb_fromRDM=alltasksmat{tsi}(:,:,subi);
         ingpsim_vals{tsi}{subi}=[cursb_fromRDM(2:4,1); cursb_fromRDM(3:4,2); cursb_fromRDM(4,3);];

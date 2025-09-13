@@ -1,7 +1,6 @@
 %% Overall goal: this function calls python functions which uses surface
 % projection maps (in Hdf5 format) to project surface based functional
 % images (GIFTI) from fsaverage6 space to the "hyperalignment space"
-
 function NCGP_hpal_map(wf)
 p=NCPG_paths(wf);
 space= ' ';

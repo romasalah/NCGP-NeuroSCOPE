@@ -1,11 +1,7 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Splits a whole-brain NIML dataset into Right and Left hemisphere for better visualization of the medial surface. File handling is done with surfing toolbox.
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Splits a whole-brain NIML dataset into Right and Left hemisphere for better visualization of the medial surface. File handling is done with surfing toolbox.
+% Overall goal: Splits a whole-brain NIML dataset into Right and Left
+% hemisphere for better visualization of the medial surface.
+% File handling is done with surfing toolbox.
 % Note: Comments added only at the top; code unchanged.
-% ==========================================================================
 % Function signature detected
 function NCPG_dset_split(dsetfolder,dsetprefix)
 %Right hemisphere values are always first

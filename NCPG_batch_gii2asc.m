@@ -1,11 +1,6 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: batch file to convert multiple files from GIFTI standard to ASCII standard used by freesurfer
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: batch file to convert multiple files from GIFTI standard to ASCII standard used by freesurfer
+% Overall goal: batch file to convert multiple files from GIFTI standard to
+% ASCII standard used by freesurfer
 % Note: 
-% ==========================================================================
 % Function signature detected
 function NCPG_batch_gii2asc(p, sub)
 sumafolder=p.refsuma;

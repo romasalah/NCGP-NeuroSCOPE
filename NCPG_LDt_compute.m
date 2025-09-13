@@ -1,12 +1,7 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Calcuulates linear discriminant t-value. First calculates difference in training runs then multiply it by the inverse of the variance-covariance matrix. Then normalize the distance by the square root of the sum of square. Multiply the normalized distance by the difference in test runs.
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Calcuulates linear discriminant t-value. First calculates difference in training runs then multiply it by the inverse of the variance-covariance matrix. Then normalize the distance by the square root of the sum of square. Multiply the normalized distance by the difference in test runs.
-% Note: 
-% ==========================================================================
-% Function signature detected
+% Overall goal: Calcuulates linear discriminant t-value. First calculates difference
+% in training runs then multiply it by the inverse of the variance-covariance matrix.
+% Then normalize the distance by the square root of the sum of square.
+% Multiply the normalized distance by the difference in test runs.
 function LDtmat=NCPG_LDt_compute(betasbycond_train, betasbycond_test, residuals_train)
 %% Start Calculation
 LDtmat=[];

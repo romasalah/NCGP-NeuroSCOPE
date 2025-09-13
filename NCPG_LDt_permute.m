@@ -1,12 +1,6 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Hypothesis 3: Creates a null distribution of Linear Discriminant t-values. It calculates the correlation between bevaioural RDM and the permuted searchlights for each permutation.
-% Note: Added comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Hypothesis 3: Creates a null distribution of Linear Discriminant t-values. It calculates the correlation between bevaioural RDM and the permuted searchlights for each permutation.
-% Note: Comments added only at the top; code unchanged.
-% ==========================================================================
-% Function signature
+% Overall goal: Hypothesis 3: Creates a null distribution of Linear Discriminant
+% t-values. It calculates the correlation between bevaioural RDM and the permuted
+% searchlights for each permutation.
 function [corr_sesshemi, pval_sesshemi]=NCPG_LDt_permute(wf, brainRDMscell,oldds, targetRDM, corrmethod, hTail, alpha)
 targetRDM_full= targetRDM + targetRDM';
 % Toolbox call → cosmo_squareform
