@@ -1,2 +1,0 @@
-go 1.17.13
-singularity 3.10.4 ce

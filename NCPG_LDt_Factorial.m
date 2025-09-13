@@ -1,12 +1,6 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Hardcodes a factorial design made of 16 between subject distance images and 12 within subject distance images for before and after the intervention (so 12 x 2 + 16 x 2 images). The factorial design is used later to estimate a TFCE model
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Hardcodes a factorial design made of 16 between subject distance images and 12 within subject distance images for before and after the intervention (so 12 x 2 + 16 x 2 images). The factorial design is used later to estimate a TFCE model
-% Note:
-% ==========================================================================
-% Function signature detected
+% Overall goal: Hardcodes a factorial design made of 16 between subject distance
+% images and 12 within subject distance images for before and after the intervention
+% (so 12 x 2 + 16 x 2 images). The factorial design is used later to estimate a TFCE model
 function [spmmat, curhemimask, sessdifft, postcontrastt]=NCPG_LDt_Factorial(wf,preb_vols,prew_vols,postb_vols,postw_vols,maskname,curhemi )
 % Call → NCPG_paths
 paths=NCPG_paths(wf);
