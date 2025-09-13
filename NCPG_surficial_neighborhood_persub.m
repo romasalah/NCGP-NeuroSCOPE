@@ -27,16 +27,13 @@ for si = 1:length(wf.sessions)
         chunksnum=0;
         allsubs_runinfo{si,hi}={};
         conbetas{si,hi}={};
-% Section: for-block starts
         for subi =1:length(wf.origsubs)
             subruns=faces_runs{si,hi}{subi};
-% Section: for-block starts
             for ri =1:length(subruns)
                 chunksnum=chunksnum+1;
                 cursub=wf.origsubs{subi};
                 cursess=faces_runs{si,hi}{subi}{ri,1};
                 currun=faces_runs{si,hi}{subi}{ri,2};
-% Section: for-block starts
                 for ci =1:ncond
                     allsubs_runinfo{si,hi}{end+1,1}=cursub;
                     allsubs_runinfo{si,hi}{end,2}=cursess;

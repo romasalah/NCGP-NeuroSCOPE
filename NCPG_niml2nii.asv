@@ -63,7 +63,7 @@ convertnii2afni=[' 3dcopy ' sumafolder 'fsaverage6_SurfVol.nii ' sumafolder 'fsa
 delete(gcp('nocreate'));
 parpool('local',length(IMG_inside))
 % Section: parfor-block starts
-parfor subi=1:length(subs)
+for subi=1:length(subs)
     % Section: for-block starts
     for sessi=1:length(sess)
         side=wf.hemis;
@@ -151,10 +151,10 @@ parfor subi=1:length(subs)
                                     ' -sdata ' cur1Dfnin ' -sv ' surfvol ' -prefix ' curprefix...
                                     ' -map_func ave -grid_parent ' T1AFNI]);
                                 system([bashbase{subi} 'sh -c "cd ' tempdirin ' && 3dAFNItoNIFTI ' curprefix '+orig -prefix ' shortprefix '_' num2str(i) '"'])
-                                delete([curprefixout '+orig.BRIK']);
+                                delete([curprefixout '+orig.BRIK.gz']);
                                 delete([curprefixout '+orig.HEAD']);
-                                gunzip([tempdirin shortprefix '_' num2str(i) '.nii.gz'])
-                                delete([tempdirin shortprefix '_' num2str(i) '.nii.gz'])
+                                gunzip([curprefixout '.nii.gz'])
+                                delete([curprefixout '.nii.gz'])
                             end
                         end
 
@@ -178,6 +178,8 @@ parfor subi=1:length(subs)
                         system([bashbase{subi} 'sh -c "cd ' tempdirin '; 3dAFNItoNIFTI ' shortprefix '_mask+orig -prefix ' shortprefix '_mask"'])
                         delete([tempdir shortprefix '_mask+orig.BRIK']);
                         delete([tempdir shortprefix '_mask+orig.HEAD']);
+                        gunzip([tempdir shortprefix '_mask.nii.gz']);
+                        del
                     end
                 end
             end

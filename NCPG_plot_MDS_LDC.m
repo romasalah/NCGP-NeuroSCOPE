@@ -49,8 +49,8 @@ for hi= 1:length(wf.hemis)
                 postcontrast{hi}=stats{1,hi}.tstat_difftest(sig_intersect, :);
                 sessdiff{hi}=stats{1, hi}.tstat_postcontrast(sig_intersect, :);
         end
-        ldc_avg_pre{hi}=ldt_avg{hi,1}(sig_intersect);
-        ldt_avg_post{hi}=ldt_avg{hi, 2}(sig_intersect);
+        ldc_avg_pre{hi}=ldt_avg{1,hi}(sig_intersect);
+        ldt_avg_post{hi}=ldt_avg{2, hi}(sig_intersect);
         nbrhood_nodes_pre{hi}=nbrhood_nodes{1,hi}(sig_intersect);
         nbrhood_nodes_post{hi}=nbrhood_nodes{2,hi}(sig_intersect);
         pialfn{hi}=[p.refsuma filesep lower(wf.hemis{hi}) 'h.pial.asc'];

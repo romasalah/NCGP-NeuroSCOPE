@@ -109,14 +109,11 @@ for si=1:Nses
                 % Get realignment parameters
                 % Section: switch-block starts
                 % Section: switch-block starts
-                switch wf.exp
-                    % Section: case-block starts
-                    % Section: case-block starts
-                    case 'NCGP'
+
                         multiregFile = dir( [p.pre  filesep subs{subi} filesep cursession filesep 'func' filesep subs{subi} '_' cursession '_task-' wf.task '_' curcellruns{runi,2}  '*confounds.tsv' ] );
                         sessMultiregFile = [multiregFile.folder filesep multiregFile.name];
                         minregfn=strrep(sessMultiregFile,'confounds.tsv','confounds_min.txt');
-                end
+                
                 [confall, header, raw]=tsvread(sessMultiregFile);
                 keep_cols = ismember(header, confnameopts{1});
                 if sum(keep_cols)==0
@@ -129,15 +126,9 @@ for si=1:Nses
                 % Get Onsets
                 % Section: switch-block starts
                 % Section: switch-block starts
-                switch wf.exp
-                    % Section: case-block starts
-                    % Section: case-block starts
-                    case 'NCGP'
+            
                         onsetstable = readtable([multiregFile.folder filesep runprefix '_events.xlsx']);
-                        % Section: case-block starts
-                        % Section: case-block starts
-
-                end
+            
                 condition_names=unique(onsetstable.trial_type);
                 conData={};
                 % Section: for-block starts
@@ -145,14 +136,12 @@ for si=1:Nses
                 for ci=1:length(condition_names)
                     conData{ci}.tasks = onsetstable.trial_type(strcmp(onsetstable.trial_type,condition_names{ci}));
                     temp_onsets= onsetstable.onset(strcmp(onsetstable.trial_type,condition_names{ci}));
-                    % Section: if-block starts
-                    % Section: if-block starts
+                   
                     if isa(onsetstable.onset(1),'char') | isa(onsetstable.onset(1),'cell')
                         temp_onsets=str2double(temp_onsets);
                     end
                     temp_durations=onsetstable.duration(strcmp(onsetstable.trial_type,condition_names{ci}));
-                    % Section: if-block starts
-                    % Section: if-block starts
+                 
                     if isa(onsetstable.duration(1),'char') | isa(onsetstable.duration(1),'cell')
                         temp_durations=str2double(temp_durations);
                     end
@@ -160,8 +149,7 @@ for si=1:Nses
                     conData{ci}.durations = temp_durations;
                 end
                 % add session-specific infos
-                % Section: for-block starts
-                % Section: for-block starts
+            
                 for c = 1:length(condition_names)
                     matlabbatch{1}.spm.stats.fmri_spec.sess(allruns_subs).cond(c).name = conData{c}.tasks{1};
                     matlabbatch{1}.spm.stats.fmri_spec.sess(allruns_subs).cond(c).onset = conData{c}.onsets;
@@ -185,8 +173,7 @@ for si=1:Nses
             matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
             outputsub=subs{subi};
             onsets='face';
-            % Section: if-block starts
-            % Section: if-block starts
+            
             if wf.modelblackresponse==1
                 onsets='faceblackresponse';
             end
@@ -198,12 +185,10 @@ for si=1:Nses
             matlabbatch{2}.spm.stats.fmri_est.method.Classical = 1;
             matlabbatch{2}.spm.stats.fmri_est.write_residuals =wf.glmresiduals;
             matlabbatch{2}.spm_skip_maskthreshold=1;
-            % Section: try-block starts
-            % Section: try-block starts
+           
             try mkdir(spmmatdir); end
             save([spmmatdir '/matlabbatch'],'matlabbatch')
-            % Toolbox call → spm_jobman
-            % Toolbox call → spm_jobman
+            
             spm_jobman( 'run', matlabbatch );
         end
     end

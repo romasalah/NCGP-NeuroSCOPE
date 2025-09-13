@@ -4,7 +4,7 @@
 % Note: Added comments only; code logic unchanged.
 % ========n==================================================================
 % Call → NCPG_create_workflow: Build directory config and execution order for the overall analysis workflow.
-wf2=NCPG_create_workflow('faces', {'R'},'NCGP','hpal');
+wf2=NCPG_create_workflow('faces', {'L'},'NCGP','hpal');
 % Call → NCPG_create_workflow: Build directory config and execution order for the overall analysis workflow.
 wfbehav=NCPG_create_workflow('localizer', {'R'},'BehavNCGP','hpal');
 % Call → NCPG_prepost: Compute pre vs post session differences (e.g., between-/within-group LDt change).

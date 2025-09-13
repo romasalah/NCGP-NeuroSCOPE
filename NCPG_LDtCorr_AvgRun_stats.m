@@ -4,6 +4,10 @@
 % ==========================================================================
 % ==========================================================================
 % Overall goal: Run FDR on uncorrected P-values, filter out above-threshold p--values and plot only the significant ones.
+function [sigFDR_idx, sigp, sig_FDR_corr]=NCPG_LDtCorr_AvgRun_stats(wf, corrvals, pvals_uncorrected)
+for si =1:length(wf.sessions)
+% Section: for-block starts
+    for hi = 1:length(wf.hemis)
             roinum=size(corrvals{si,hi}, 1);
             corr_AvgRun=corrvals{si,hi};
 % Call → NCPG_FDR

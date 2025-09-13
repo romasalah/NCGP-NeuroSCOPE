@@ -10,7 +10,7 @@
 function signodes_surf=NCPG_LDt_TFCE(wf, LDCvals,oldds,curhemi, maskname)
 % Call → NCPG_LDt_TFCE_surf2vol
 [preb_vols,prew_vols,postb_vols,postw_vols]=NCPG_LDt_TFCE_surf2vol(wf, LDCvals,oldds,curhemi,maskname);
-% Call → NCPG_LDt_Factorial
+% Call → NCPssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssG_LDt_Factorial
 [spmmat, hemimasks]=NCPG_LDt_Factorial(wf,preb_vols,prew_vols,postb_vols,postw_vols, maskname, curhemi);
 % Call → NCPG_LDt_TFCE_estimate
 NCPG_LDt_TFCE_estimate(wf, 'SPM',hemimasks,spmmat,maskname, oldds);

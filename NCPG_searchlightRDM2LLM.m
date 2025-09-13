@@ -1,9 +1,9 @@
+function [LLMdes_RSMrun, LLMdes_RSMrun_FDR]=NCPG_searchlightRDM2LLM(wf,slRSMcell,sigFDR_idx, node_indices_masked, taskname,maskname)
 % ==========================================================================
 % Overall goal: Package searchlight correlation/LDt values into tabular form for LLM ingestion.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % Note: Added comments only; code logic unchanged.
 % ==========================================================================
-function [LLMdes_RSMrun, LLMdes_RSMrun_FDR]=NCPG_searchlightRDM2LLM(wf,slRSMcell,sigFDR_idx, node_indices_masked, taskname,maskname)
 LLMdes_RSMrun=[];
 LLMdes_RSMrun_FDR=[];
     cursub='group';
@@ -17,8 +17,6 @@ LLMdes_RSMrun_FDR=[];
             %curslRSM=permute(curslRSM, [2,3,1]);
             empchar=cellstr(num2str(ones(size(curslRSM,1),1)));
             empslchar=strrep(cellstr(num2str([1:size(curslRSM,1)]')), ' ', '0');
-            nodesidxchar=cellstr(num2str(node_indices_masked{si,hi}));
-            strparts=[strrep(empchar, '1', 'SL-') empslchar];
             slchar=cellfun(@(x) ['SL-' x], empslchar, 'UniformOutput',false);
             subchar=strrep(empchar, '1', cursub);
             seschar=strrep(empchar, '1', cursession);

@@ -26,7 +26,7 @@ wf2.origsubs=wf2.subs;wf2.subs={'group'};
  %% Calculate, visualise & save Discriminability between conditions (LDC)
 % >>>>>>>>>> Whole brain LDC <<<<<<<<
 % Call → NCPG_LDt_subses: Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
-[ldt_byrun, ldt_avgruns]=NCPGnodes,ldt_avgruns)
+[ldt_byrun, ldt_avgruns]=NCPG_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
 % Call → NCPG_RDM_export: Export LDt (or RDM-like) matrices across sessions/hemispheres into files for later stats/LLM usage.
 FFXtbl_subsesshemi=NCPG_RDM_export(wf2, ldt_avgruns, fullnbr_subsesshemi, vo, fo, 'none', []);
 %% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
@@ -43,7 +43,7 @@ NCPG_plot_MDS_LDC(wf2,ldt_avgruns',fullnbr_subsesshemi, TFCE_stats, stats, slnam
 % >>>>>>>Whole Brain<<<<<<<<
 % Call → NCPG_LDtcorr_AvgRun: Aggregate correlation values across runs; prepare per-searchlight correlation statistics.
 [LLM_LDtcorr, LDtcorr, sigFDR_idx, q_values, LDtcorr_pval, sig_FDR_coef, corr_sesshemi, pval_sesshemi]=NCPG_LDtcorr_AvgRun(...
-    wf2, ds, ldt_avgruns, taskname, vo, fo, 'none', maskidx_subsesshemi);
+    wf2, ds, ldt_avgruns, taskname, vo, fo, 'none');
 
 % Call → NCPG_surface_tfce: Run TFCE or surface-based cluster enhancement and output corrected maps.
-NCPG_surface_tfce(wf2, LDtcorr,corr_sesshemi, nbrorig_subsesshemi, 'none', maskidx_subsesshemi, taskname, ds,vo,fo)
+NCPG_surface_tfce(wf2, LDtcorr,corr_sesshemi, nbrorig_subsesshemi, 'none', [], taskname, ds,vo,fo)
