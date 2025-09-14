@@ -1,2 +1,0 @@
-/opt/conda2/envs/neuro27/bin/python: can't open file '/idata/scripts/04stats/bwsj/run_permtest_bootstrap.py': [Errno 2] No such file or directory
-srun: error: node29: task 0: Exited with exit code 2
