@@ -13,15 +13,49 @@
 	- Download the dataset from openneuro.org ().
 	- The expected data is preprocessed with fMRIprep 1.0.3 and structured in BIDS format.
 
-## Expected dataset structure (After Analysis)
+## Analysis Starting Points
+    There are 2 options to start the analysis from. you can either start from:
 
-    ├───data					# root folder
+    1. Preprocessed dataset in the fsaverage6 space, located in the folder "root/derivatives/fmriprep". 
+    In this case, you will have to apply the projection maps located in "root/derivatives/hpal"
+    to the fmriprep dataset to regenerate the functional dataset projected to the shared space which
+    will be found in "root/derivatives/hpalfunc". If you already downloaded the "hpalfunc" folder,
+    please rename it first to "hpalfunc_original".
+
+    2. Preprocessed dataset in the shared hyperalignment space, located in the folder
+    "root/derivatives/hpalfunc". In this case, you can skip the function "NCGP_hpal_map.m"
+    and start by converting the surface based data into volumetric data.
+
+## Expected dataset structure (Before the analysis)
+
+    ├───data
+        ├───derivatives     	
+        │   ├───fmriprep                # Preprocessed dataset in fsaverage6 space
+        │   ├───freesurfer              # Constructed surface using freesurfer, We included fsaverage6 surface only.
+        │   │   └───fsaverage6		    
+        │   │        └──SUMA			     # fsaverage6 brain surfaces converted to AFNI/SUMA format.
+        │   ├───hpal                    # Contains hyperalignment projection maps which transform the dataset in root\derivatives\fmriprep into the dataset in root\derivatives\hpalfunc
+        │   │    └──sub-004 to sub-024      # each subject folder contains two H5 maps (~700MB each).
+        │   ├───hpalfunc                # Contains Preprocessed files after mapping to a shared hyperalignment space
+        │   └──sub-004 to sub-024           # There should be a folder for each subject
+        │   │   │   ├───ses-01                  # Inside each session folder, there is a 4D surface dataset (in NIML format) for each run.
+        │   │   │   │   └───func
+        │   │   │   ├───ses-02
+        │   │   │   │   └───func
+        │   │   │   └───ses-03
+        │   │   │       └───func
+
+
+
+## Expected dataset structure (After the analysis)
+
+    ├───data				# root folder
         ├───derivatives     	# Contains all datasets derived from the Original dataset.
-        │   ├───fmriprep		# Preprocessed dataset, the starting point of the analysis.
-        │   ├───freesurfer  	# Constructed surface using freesurfer.
-        │   │   └───fsaverage6		# We included fsaverage6 surface only.
-        │   │       ├───SUMA			# fsaverage6 brain surfaces converted to AFNI/SUMA format.
-        │   ├───hpal			# 
+        │   ├───fmriprep		    # Preprocessed dataset, the starting point of the analysis.
+        │   ├───freesurfer  	    # Constructed surface using freesurfer.
+        │   │   └───fsaverage6		    # We included fsaverage6 surface only.
+        │   │       ├───SUMA			    # fsaverage6 brain surfaces converted to AFNI/SUMA format.
+        │   ├───hpal			    # Contains hyperalignment projection maps which transform the dataset in root\derivatives\fmriprep into the dataset in root\derivatives\hpalfunc
         │   │   ├───SPM_GLM
         │   │   │   ├───group
         │   │   │   │   └───fmriprep
@@ -29,20 +63,14 @@
         │   │   │   │       ├───task-faces_ses-02_hemi-R_smooth-S0
         │   │   │   │       ├───task-faces_ses-03_hemi-L_smooth-S0
         │   │   │   │       ├───task-faces_ses-03_hemi-R_smooth-S0
-        │   │   │   ├───sub-004
-        │   │   │   │   └───fmriprep
-        │   │   │   │       ├───task-faces_ses-02_hemi-L_smooth-S0_onsets-face
-        │   │   │   │       ├───task-faces_ses-02_hemi-R_smooth-S0_onsets-face
-        │   │   │   │       ├───task-faces_ses-03_hemi-L_smooth-S0_onsets-face
-        │   │   │   │       └───task-faces_ses-03_hemi-R_smooth-S0_onsets-face
-        │   │   │   ├───sub-005 to sub-024
-        │   ├───hpalfunc		# Contains Preprocessed files after mapping to a shared hyperalignment space
-        │   │   ├───sub-004			# There should be a folder for each subject
-        │   │   │   ├───ses-01			# For each session, there is a 4D surface dataset (in NIML format) for each run.
+        │   │   │   ├───sub-004 to sub-024 each subject folder contains two H5 maps (~700MB each).
+        │   ├───hpalfunc		    # Contains Preprocessed files after mapping to a shared hyperalignment space
+        │   │   ├───sub-004			    # There should be a folder for each subject
+        │   │   │   ├───ses-01		    	# For each session, there is a 4D surface dataset (in NIML format) for each run.
         │   │   │   │   └───func
         │   │   │   ├───ses-02
         │   │   │   │   └───func
-        │   │   │   │       └───volumetric # in the sessions that involved the task "faces", each 4D NIML surface datasets are projected to the volumetric space of fsaverage6 then extracted to a series of 3D volumes.
+        │   │   │   │       └───volumetric          # in the sessions that involved the task "faces", each 4D NIML surface datasets are projected to the volumetric space of fsaverage6 then extracted to a series of 3D volumes.
         │   │   │   └───ses-03
         │   │   │       └───func
         │   │   │           └───volumetric
@@ -54,7 +82,7 @@
         │   │               ├───hemi-L_mask-none # Whole-brain, left hemisphere results.
         │   │               ├───hemi-R_mask-none # Whole-brain, right hemisphere results.	
         │   │               └───LDCdiff
-        │   └───SPM_GLM
+        │   └───SPM_GLM         # first level analysis: SPM-based Volumetric General Linear Model for each subject  
         │       ├───group
         │       │   └───fmriprep
         │       │       ├───task-faces_ses-02_hemi-L_smooth-S0
@@ -68,6 +96,7 @@
         │       │       ├───task-faces_ses-03_hemi-L_smooth-S0_onsets-face
         │       │       └───task-faces_ses-03_hemi-R_smooth-S0_onsets-face
         │       ├───sub-005 to sub-024
+
 ## Disclaimers
 	- Some matlab code from Tsantani et al. 2019, Castello et al. 2021.
 	- External libraries included are; CosomoMVPA v1.1.0, Surfing toolbox v0.6, and Decoding toolbox v3.997.
