@@ -29,7 +29,7 @@ p.hpal=[p.mp filesep 'derivatives' filesep 'hpalfunc' filesep];
 p.fs=[p.mp 'derivatives' filesep 'freesurfer' filesep];
 p.refsuma=[p.fs wf.refsub filesep 'SUMA'];
 p.glm=[p.mp wf.alignment filesep wf.glm filesep];
-p.LDC= [p.mp 'LDC' filesep 'group' filesep wf.pre filesep wf.glm filesep ];
+p.LDC= [p.mp 'derivatives' filesep 'LDC' filesep 'group' filesep wf.pre filesep wf.glm filesep ];
 % Section: for-block starts
 for i=1:length(wf.subs)
     p.presub{i}=[p.pre wf.subs{i}];

@@ -79,7 +79,9 @@ for si = 1:length(wf.sessions)
 % Section: if-block starts
             if ~exist(betadsetname,'file')
 % Call → NCPG_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
-                NCPG_vol2surf(wf, strrep(curds_nii{bi,1},beta_loc{si,hi}{subi},''), beta_loc{si,hi}{subi}, curhemi,'a');
+                curfoldernameloc= strfind(curds_nii{bi,1},'beta_');
+                curfoldername=curds_nii{bi,1}(1:curfoldernameloc-1);
+                NCPG_vol2surf(wf, strrep(curds_nii{bi,1},curfoldername,''), curfoldername, curhemi,'a');
             end
 % Toolbox call → cosmo_surface_dataset
             dssurf{bi} = cosmo_surface_dataset(betadsetname,'targets',curds_nii{bi,3},'chunks',curds_nii{bi,2});
