@@ -1,12 +1,4 @@
-% ==========================================================================
-% Overall goal (user-provided): Overall goal: Loads data from the pre- and post-intervention behavioral similarity ratings.
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Loads data from the pre- and post-intervention behavioral similarity ratings.
-% Note:
-% ==========================================================================
-% Function signature detected
+%% Loads data from the pre- and post-intervention behavioral similarity ratings.
 function [allfacesimtbls, allgpnames, allingpnames]=NCPG_loadfacesimtbl(wf, datatime)
 gpnames_AH={'AH1','AH2','AH3','AH4','NAT1','NAT2','NAT3','NAT4'};
 gpnames_NAT={'NAT1','NAT2','NAT3','NAT4','AH1','AH2','AH3','AH4'};
@@ -28,14 +20,7 @@ subs_num=wf.subs_num;
 % Section: for-block starts
 for subi=1:length(subs)
     subid=num2str(subs_num(subi));
-% Section: switch-block starts
-    switch wf.exp
-% Section: case-block starts
-        case 'NCGP'
-            behavfolder= [wf.mainpath filesep wf.pre filesep subs{subi} filesep cursess filesep 'behav' filesep];
-        case 'BehavNCGP'
-            behavfolder= [wf.mainpath filesep];
-    end
+    behavfolder= [wf.mainpath filesep];
     %% Load results
     subfile=[behavfolder subid 'facesimilarity_' timestr 'output.xlsx'];
     opts = detectImportOptions(subfile);

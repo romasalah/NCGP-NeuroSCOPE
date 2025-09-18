@@ -13,17 +13,13 @@ switch exp
 % Section: case-block starts
     case 'BehavNCGP'
         sublist={};
-        %         subsnum=[2:3, 5:16, 18:26]';
-        %         for i=1:length(subsnum)
-        %         sublist{i}=num2str(sprintf('%03d',subsnum(i)));
-        %         end
         subsnum2=[204:208, 210:213, 215,216, 219:224]';
 % Section: for-block starts
         for i2=1:length(subsnum2)
             sublist{end+1}=num2str(subsnum2(i2));
         end
 % Call → NCPG_osdir: Project function call
-        wf.mainpath=NCPG_osdir('BehavNCGP');
+        wf.mainpath=[NCPG_osdir() 'BehavNCGP' filesep];
     case 'NCGP'
         subsnum=[4:8, 10:13, 15,16, 19:24];
         subs=string(subsnum);

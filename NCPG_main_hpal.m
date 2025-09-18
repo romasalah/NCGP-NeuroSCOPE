@@ -21,8 +21,8 @@ if Step == 1
 elseif Step==2
     %% Part 2: Must be done for session 2 and 3 simultaneoulsy
     %% Create workflows
-    wf2=NCPG_create_workflow('faces', {'L'},'NCGP','hpal');
-    wfbehav=NCPG_create_workflow('localizer', {'R'},'BehavNCGP','hpal');
+    wf2=NCPG_create_workflow('faces', {'R'},'NCGP','hpal');
+    wfbehav=NCPG_create_workflow('', {'R'},'BehavNCGP','hpal');
     wf2.sessions={'ses-02','ses-03'};
     [faces_runs]=NCPG_onsets_faces(wf2);
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
@@ -33,7 +33,7 @@ elseif Step==2
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
         nbrorig_subsesshemi]=NCPG_surficial_neighborhood_persub(wf2, faces_runs, 0);
     %% Calculate, visualise & save Discriminability between conditions (LDC)
-    % >>>>>>>>>> Whole brain LDC <<<<<<<<
+    % >>>>>>>>>> Whole brain LDt <<<<<<<<
     % Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
     [ldt_byrun, ldt_avgruns]=NCPG_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
     %% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
@@ -45,7 +45,7 @@ elseif Step==2
     % Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
     [slnames, stats, TFCE_stats]=NCPG_LDt_stats(wf2, 'none','TFCE', ds); % statistics
     % Plot and store MDS from LDt distances for visualization.
-    NCPG_plot_MDS_LDC(wf2,ldt_avgruns',fullnbr_subsesshemi, TFCE_stats, stats, slnames,'none','TFCE')
+    NCPG_plot_MDS_LDC(wf2,ldt_avgruns,fullnbr_subsesshemi, TFCE_stats, stats, slnames,'none','TFCE')
     %% Hypothesis 3: Searchlight RSA (LDt Correlation with behavioural RDMs)
     % >>>>>>>Whole Brain<<<<<<<<
     % Aggregate correlation values across runs; prepare per-searchlight correlation statistics.

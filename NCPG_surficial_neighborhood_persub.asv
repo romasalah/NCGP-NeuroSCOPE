@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Construct subject-specific surface searchlight neighborhoods (fsaverage6) and optional localizer mask indices.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [ds_subsesshemi, fullnbr_frombetas_cell_sesshemi, vo_subsesshemi, fo_subsesshemi, out2in,...
     betasfn, allnbrhood_frombetas_cell, nscans_subrun, allnbr_frombetas_sesshemi]=NCPG_surficial_neighborhood_persub(wf, faces_runs, presaved_betas_flag)
@@ -79,9 +78,9 @@ for si = 1:length(wf.sessions)
 % Section: if-block starts
             if ~exist(betadsetname,'file')
 % Call → NCPG_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
-                curfoldername= strfind(curds_nii{bi,1},'beta_');
-                curfoldername=curds_nii{bi,1}
-                NCPG_vol2surf(wf, strrep(curds_nii{bi,1},beta_loc{si,hi}{subi},''), beta_loc{si,hi}{subi}, curhemi,'a');
+                curfoldernameloc= strfind(curds_nii{bi,1},'beta_');
+                curfoldername=curds_nii{bi,1}(1:curfoldernameloc-1);
+                NCPG_vol2surf(wf, strrep(curds_nii{bi,1},curfoldername,''), curfoldername, curhemi,'a');
             end
 % Toolbox call → cosmo_surface_dataset
             dssurf{bi} = cosmo_surface_dataset(betadsetname,'targets',curds_nii{bi,3},'chunks',curds_nii{bi,2});

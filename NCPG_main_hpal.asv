@@ -33,7 +33,7 @@ elseif Step==2
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
         nbrorig_subsesshemi]=NCPG_surficial_neighborhood_persub(wf2, faces_runs, 0);
     %% Calculate, visualise & save Discriminability between conditions (LDC)
-    % >>>>>>>>>> Whole brain LDC <<<<<<<<
+    % >>>>>>>>>> Whole brain LDt <<<<<<<<
     % Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
     [ldt_byrun, ldt_avgruns]=NCPG_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
     %% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
