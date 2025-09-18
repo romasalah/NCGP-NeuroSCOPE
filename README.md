@@ -133,3 +133,9 @@
 	- Some matlab code from Tsantani et al. 2019, Castello et al. 2021.
 	- External libraries included are; CosomoMVPA v1.1.0, Surfing toolbox v0.6, and Decoding toolbox v3.997.
 	- Helper functions tsv_read.m (https://www.mathworks.com/matlabcentral/fileexchange/32782-tsvread-importing-tab-separated-data), parfor_progressbar.m (https://www.mathworks.com/matlabcentral/fileexchange/53773-parfor_progressbar)
+
+## Todo
+    - Hypothesis 1 testing using JASP, ready JASP files.
+    - Hypothesis 2 & 3 results location and format.
+    - Needed software and setup for hypothesis 2 results visualization.
+    - Update and confirm the after-analysis data structure. 
