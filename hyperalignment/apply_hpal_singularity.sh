@@ -46,7 +46,7 @@ else
     HEMIFS=rh
 fi
 
-CMD="$HOME_DIR_INSIDE/scripts/01hyperalignment/apply_hpal.py \
+CMD="$HOME_DIR_INSIDE/scripts/hyperalignment/apply_hpal.py \
     --inputs $FMRIPREPDIR/$SUBJ/ses-*/func/*"$HEMI"*.func.gii \
     --mask $FSDIR/fsaverage6/SUMA/"$HEMIFS".maskmedial.niml.dset \
     --mapper $MAPPERDIR/$SUBJ/"$SUBJ"_task-movie_space-fsaverage6_hemi-"$HEMI"_target-hpal_mapper.h5 \

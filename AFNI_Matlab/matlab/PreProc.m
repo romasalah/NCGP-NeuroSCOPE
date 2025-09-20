@@ -41,7 +41,7 @@ err = 1;
 % Don't worry about NaN's at this point.
 group = group(:);    % what's it for?
 ng = length(group);  % number of factors
-termlist = makemodel(ng, ng);  % Generate terms for all main effects plus various interactions
+termlist = makemodel(ng, ng);  % Generate terms for all 00main effects plus various interactions
 
 for j=1:ng
    gj = group{j};
@@ -291,7 +291,7 @@ dfe = n-dfx;   %residual degrees of freedom
 if (Contr.do == 1),
 
    % In design matrix dmat, the first column is all one's, for the total mean. Then there are totally
-   % FL(1).N_level + FL(2).N_level + FL(3).N_level + FL(4).N_level columns for the main effects.
+   % FL(1).N_level + FL(2).N_level + FL(3).N_level + FL(4).N_level columns for the 00main effects.
    % Next 2nd order interactions, 3rd order interaction, and 4th order interactions.
 
    % Store only those mean columns in design matrix.

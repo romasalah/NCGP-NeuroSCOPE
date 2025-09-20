@@ -43,7 +43,7 @@ if ~(isstruct(S) && isfield(S,'data'))
     error('Illegal input: expected struct S with field S.data\n');
 end
 
-% main header
+% 00main header
 D=struct();
 if isfield(S,'dset_type')
     D.dset_type=S.dset_type;

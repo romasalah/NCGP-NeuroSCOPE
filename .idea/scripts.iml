@@ -2,11 +2,8 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <excludeFolder url="file://$MODULE_DIR$/CoSMoMVPA" />
       <excludeFolder url="file://$MODULE_DIR$/DeBruijn-master" />
       <excludeFolder url="file://$MODULE_DIR$/Setup" />
-      <excludeFolder url="file://$MODULE_DIR$/decoding_toolbox_v3.997" />
-      <excludeFolder url="file://$MODULE_DIR$/surfing" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (venv)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

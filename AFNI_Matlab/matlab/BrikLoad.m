@@ -108,7 +108,7 @@ function [err, V, Info, ErrMessage] = BrikLoad (BrikName, param1, param2)
 %            options.
 %            Also, the very first voxel in the dataset is indexed 1 in .Voxels
 %            as opposed to 0 in AFNI. To find the 1D index of a voxel in AFNI,
-%            you can right click in the top left corner of the main controller
+%            you can right click in the top left corner of the 00main controller
 %            and select 'Voxel Indexes'. The AFNI 1D index is displayed to the
 %            right of 'index'. To referring to the same voxel in .Voxels you
 %            should add +1 to the number displayed next to 'index'.

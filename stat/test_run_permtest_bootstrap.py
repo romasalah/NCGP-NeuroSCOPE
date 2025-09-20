@@ -191,8 +191,8 @@ def main():
     p = parse_args()
     nproc = p.nproc
     nproc=1
-    input="C:\Users\CENs-Admin\Documents\Omar\NCPG\derivatives103\pre\slclfbwsbj-blockrun-deconvolve-fsaverage6-pre"
-    permuted="C:\Users\CENs-Admin\Documents\Omar\NCPG\derivatives103\pre\slclfbwsbj-blockrun-deconvolve-fsaverage6-pre"
+    input="C:\Users\CENs-Admin\Documents\Omar\NCGP\derivatives103\pre\slclfbwsbj-blockrun-deconvolve-fsaverage6-pre"
+    permuted="C:\Users\CENs-Admin\Documents\Omar\NCGP\derivatives103\pre\slclfbwsbj-blockrun-deconvolve-fsaverage6-pre"
     input2=
     permuted2=
     # load as a dataset because we need the feature attributes

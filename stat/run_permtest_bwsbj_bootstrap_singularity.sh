@@ -3,7 +3,7 @@ TARG=$1
 HEMI=$2
 SESS=$3
 DECON=$4
-BASEDIR="/mnt/c/Users/CENs-Admin/Documents/Omar/NCPG"
+BASEDIR="/mnt/c/Users/CENs-Admin/Documents/Omar/NCGP"
 IMG="/mnt/c/Users/CENs-Admin/Documents/Omar/Castello_2021/singularity/neurodocker.img"
 FMRIPREPDIR=/idata/derivatives103/$SESS/fmriprep
 FSDIR=/idata/derivatives103/$SESS/freesurfer
@@ -18,7 +18,7 @@ PERMUTED="$OUTDIR"/bwsbj_task-"$TASK"_space-fsaverage6_hemi-"$HEMI"_target-"$TAR
 OUTPUT="$OUTDIR"/bwsbj_task-"$TASK"_space-fsaverage6_hemi-"$HEMI"_target-"$TARG"_sl
 
 
-CMD="/idata/scripts/04stat/run_permtest_bootstrap.py \
+CMD="/idata/scripts/stat/run_permtest_bootstrap.py \
      -i $INPUT \
      -p $PERMUTED \
      --prefix $OUTPUT \
