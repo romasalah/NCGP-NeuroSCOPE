@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Uses SPM batch system to calculate a Faces-versus-objects contrast to find selectively face sensitive regions. It uses volumetric preprocessed images coming from fmriprep preprocessing.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Uses SPM batch system to calculate a Faces-versus-objects contrast to find selectively face sensitive regions. It uses volumetric preprocessed images coming from fmriprep preprocessing.
-% Note:
-% ==========================================================================
-% Function signature detected
 function [spmmatdir,conimgname,cons]=NCGP_firstlevel_localiser(jobs,wf,HRFderivatives,threshold,mink)
 % ----------- Main settings -----------------------------------------------
 spmmatdir='';

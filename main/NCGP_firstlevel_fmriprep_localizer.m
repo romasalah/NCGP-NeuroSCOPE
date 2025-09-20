@@ -1,7 +1,5 @@
 % ==========================================================================
 % Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
-% Note: Comments added only at the top; code unchanged.
-% ==========================================================================
 function firstleveldir=NCGP_firstlevel_fmriprep_localizer(wf,HRFderivatives, runscell)
 %% FFX batch code for SocialDecision experiments Summer 2017
 % O. S. Ahmed based on J Schultz based on code by Paul Jung

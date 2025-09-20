@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Parse and format localizer task onsets (e.g., Faces/Objects) for first-level GLM design matrices.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function localizersessruns=NCGP_onsets_localizer(wf)
 mainPath=wf.mainpath;

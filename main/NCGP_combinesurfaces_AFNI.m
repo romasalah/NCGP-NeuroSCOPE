@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Merge right and left hemispheres datasets into one using AFNI
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Merge right and left hemispheres datasets into one using AFNI
-% Note: Comments added only at the top; code unchanged.
-% ==========================================================================
-% Function signature detected
+S% ==========================================================================
 function lrt_fn = NCGP_combinesurfaces_AFNI(wf, rt,lt)
 % Call → NCGP_paths
 p=NCGP_paths(wf);

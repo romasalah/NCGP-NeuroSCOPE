@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [slnames, statresults,signodes_surf]=NCGP_LDt_stats(wf, maskname, stattype, oldds)
 signodes_surf=[];

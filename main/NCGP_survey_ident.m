@@ -1,10 +1,5 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Calculates the group identification score and reverse scores questions 3, 4, 9, 12 then Calculates the mean
-% Note: Comments only; code unchanged.
-% ==========================================================================
-% ==========================================================================
-% Overall goal: Calculates the group identification score and reverse scores questions 3, 4, 9, 12 then Calculates the mean
-% Note: 
 % ==========================================================================
 fname='C:\Users\CENs-Admin\Desktop\NCGP_latest_filtered.csv';
 rawsurvey=readtable(fname);

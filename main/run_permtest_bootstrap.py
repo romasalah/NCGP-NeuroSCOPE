@@ -1,6 +1,5 @@
 # ==========================================================================
 # Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
-# Note: Comments added only at the top; code unchanged.
 # ==========================================================================
 #!/usr/bin/env python
 """Script to run bootstrapping on permuted maps. It returns the

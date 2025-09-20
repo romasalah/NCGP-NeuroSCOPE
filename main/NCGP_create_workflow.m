@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Build directory config and execution order for the overall analysis workflow.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function wf=NCGP_create_workflow(wfname, hemis, exp, alignment)
 % Section: if-block starts

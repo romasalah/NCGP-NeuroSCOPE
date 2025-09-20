@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Creates an SPM-based General linear Model for Main NCGP experiment task. Takes the images and cofounder vectors from fMRIprep output. It uses a cusomized SPM function to avoid masking of the few brain surface voxels. SPM must accepts the parameter spm_skip_maskthreshold=1;
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Creates an SPM-based General linear Model for Main NCGP experiment task. Takes the images and cofounder vectors from fMRIprep output. It uses a cusomized SPM function to avoid masking of the few brain surface voxels. SPM must accepts the parameter spm_skip_maskthreshold=1;
-% Note:
-% ==========================================================================
-% Function signature detected
 % Call → NCGP_firstlevel_fmriprep_hpal
 function firstleveldir=NCGP_firstlevel_fmriprep_hpal(wf, HRFderivatives, runscell)
 %% FFX batch code for SocialDecision experiments Summer 2017

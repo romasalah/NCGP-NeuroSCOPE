@@ -2,7 +2,6 @@ function [LLMdes_RSMrun, LLMdes_RSMrun_FDR]=NCGP_searchlightRDM2LLM(wf,slRSMcell
 % ==========================================================================
 % Overall goal: Package searchlight correlation/LDt values into tabular form for LLM ingestion.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 LLMdes_RSMrun=[];
 LLMdes_RSMrun_FDR=[];

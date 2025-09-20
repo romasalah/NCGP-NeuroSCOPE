@@ -1,6 +1,5 @@
 % ==========================================================================
 % Overall goal: Construct subject-specific surface searchlight neighborhoods (fsaverage6) and optional localizer mask indices.
-% Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % ==========================================================================
 function [ds_subsesshemi, fullnbr_frombetas_cell_sesshemi, vo_subsesshemi, fo_subsesshemi, out2in,...
     betasfn, allnbrhood_frombetas_cell, nscans_subrun, allnbr_frombetas_sesshemi]=NCGP_surficial_neighborhood_persub(wf, faces_runs, presaved_betas_flag)

@@ -1,7 +1,5 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Run FDR on uncorrected P-values, filter out above-threshold p--values and plot only the significant ones.
-% Note: Comments only; code unchanged.
-% ==========================================================================
 % ==========================================================================
 % Overall goal: Run FDR on uncorrected P-values, filter out above-threshold p--values and plot only the significant ones.
 function [sigFDR_idx, sigp, sig_FDR_corr]=NCGP_LDtCorr_AvgRun_stats(wf, corrvals, pvals_uncorrected)

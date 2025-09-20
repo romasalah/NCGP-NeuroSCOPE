@@ -1,13 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
-% Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
-% ==========================================================================
-% Function signature detected
 function firstleveldir=NCGP_firstlevel_fmriprep_hpal_glmpersub(wf, HRFderivatives, runscell)
 %% FFX batch code for SocialDecision experiments Summer 2017
 % O. S. Ahmed based on J Schultz based on code by Paul Jung

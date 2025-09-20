@@ -1,6 +1,5 @@
 % ==========================================================================
 % Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
-% Note: Comments added only at the top; code unchanged.
 % ==========================================================================
 function [intragroupsim_pre_avg,intragroupsim_post_avg,intergpsim_pre_avg,intergpsim_post_avg]=NCGP_plotMCR(allingpsim_pre,alloutgpsim_pre,allbtgpsim_pre,allingpsim_post,alloutgpsim_post,allbtgpsim_post,allingpnames,tasknames, plotflag)
 for tsi=1:3

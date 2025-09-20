@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Converts a NIML surface dataset into a NIFTI volumetric image using fsaverage6 surface volume and freesurfer.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Converts a NIML surface dataset into a NIFTI volumetric image using fsaverage6 surface volume and freesurfer.
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_niml2nii(wf)
 subs=wf.subs;
 sess=wf.sessions;

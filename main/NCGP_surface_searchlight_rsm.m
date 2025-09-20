@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Main Function for testing hypothesis 3. The function calculates the Spearman correlation coefficient Rho between LDt value for each searchlight and each one of the three behavioural dissimilarity matrices for (Physical appearance, personality, and social life).
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Main Function for testing hypothesis 3. The function calculates the Spearman correlation coefficient Rho between LDt value for each searchlight and each one of the three behavioural dissimilarity matrices for (Physical appearance, personality, and social life).
-% Note:
-% ==========================================================================
-% Function signature detected
 function  [ds_rsm_behav, allRSMs_masked_subsesshemi]=NCGP_surface_searchlight_rsm(wf, ds, nbrhood_nodes, nbr_subsesshemi_mask, taskname, vo, fo)
 %% Settings
 sessions=wf.sessions;

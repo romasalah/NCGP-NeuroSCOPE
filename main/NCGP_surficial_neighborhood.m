@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Divides the brain surface into searchlights using CosmoMVPA functions. First it creates a 4D beta image, then convert it to NIML surface dataset then loads the surface dataset.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Divides the brain surface into searchlights using CosmoMVPA functions. First it creates a 4D beta image, then convert it to NIML surface dataset then loads the surface dataset.
-% Note:
-% ==========================================================================
-% Function signature detected
 function [ds_subsesshemi, fullnbr_subsesshemi, nbr_subsesshemi, vo_subsesshemi, fo_subsesshemi, out2in,...
     maskidx_subsesshemi, betasfn, betasfn_masked]=NCGP_surficial_neighborhood(wf, faces_runs)
 %% Settings

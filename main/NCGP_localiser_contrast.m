@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Creates a Face > objects or scenes contrast using volumetric images and creates a cluster image
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Creates a Face > objects or scenes contrast using volumetric images and creates a cluster image
-% Note:
-% ==========================================================================
-% Function signature
 function [conimgname, conimg_clustNum]=NCGP_localiser_contrast(wf,spmdir, threshold, mink, runscell)
 runs=wf.runs;
 %%  ---------- contrasts --------------------------------------
@@ -30,14 +24,6 @@ switch wf.exp
         %         consbase=[-1 4 0 0 -1 -1 -1 zeros(1,12)];
         convals{1}={'Face','Object'};
         convals{2}=[1, -1];
-% Section: case-block starts
-    case 'Castello'
-        cons{1,1} = wf.contrast;
-        consbase=[0 1 0 -1 motionregs];
-% Section: case-block starts
-    case 'Castellonew'
-        cons{1,1} = wf.contrast;
-        consbase=[0 1 0 -1 motionregs];
 end
 convals{2}=cellstr(num2str(convals{2}'));
 c={};

@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function NCGP_vol2surf(wf, inputvol, outputdir, curhemi, imgsfx)
 wf.sfx=imgsfx;

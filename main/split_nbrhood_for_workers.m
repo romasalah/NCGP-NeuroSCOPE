@@ -1,13 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: % splits the neighborhood in multiple smaller neighborhoods that can
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: % splits the neighborhood in multiple smaller neighborhoods that can 
-% used in parallel
-% Note:
-% ==========================================================================
-% Function signature detected
 function nbrhood_cell=split_nbrhood_for_workers(nbrhood,center_ids,nproc)
 
     ncenters=numel(center_ids);

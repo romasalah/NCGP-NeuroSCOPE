@@ -1,8 +1,8 @@
 # NCGP-NeuroSCOPE
 
-## General information
+## 1. General information
 
-## Minimum Hardware requirements & Software requirements
+## 2. Minimum Hardware requirements & Software requirements
 	- 64 GB RAM (required to run MATLAB operations in parallel)
 	- 1 TB virtual RAM (page file) on an SSD.
 	- 2 TB SSD drive (for data) and 1 TB SSD (for virtual RAM).
@@ -11,7 +11,7 @@
 	- Matlab Parrallel processing toolbox (for a much faster performance). Setup your default parallel pool to have the maximum numbr of workers your processor can provide.
     - JASP for windows (version 0.18.1) available under the link: https://github.com/jasp-stats/jasp-desktop/releases/tag/v0.18.1
 
-## Acquire the datasets and analysis code
+## 3. Acquire the datasets and analysis code
 	- Download the dataset from openneuro.org ().
 	- Download this Repository and place it in the same root folder as the folder named "data".
     - Download the Singularity image which contains the AFNI/SUMA code and place it in a folder named "singularity" and place it in the same root folder.
@@ -19,7 +19,7 @@
     neurodockerV5q.img in the singularity folder.
     
 
-## Dataset structure (Before the analysis)
+## 4. Dataset structure (Before the analysis)
     Your data and code must be in the following structure for the analysis to work well.
 
     ├───data
@@ -43,7 +43,7 @@
         └───singularity             # Contains singularity image (neurodockerV5)
 
 
-## Analysis pipeline
+## 5. Analysis pipeline
     The main analysis script is NCGP_main_hpal.m. The analysis is divided into two steps:
 
     1. The first step includes; a) Projecting functional images to the shared hyperalignment space. b) Converting 4D NIML surface data into 3D
@@ -56,7 +56,7 @@
     the value to "Step=2" and run the function again. It's recommended that you run the function at Step=1 another
     time before switching to Step=2, so that you make sure that all necessary images are converted.
 
-### Analysis Starting Points
+### 5.1 Analysis Starting Points
     There are 2 options to start the analysis from. you can either start from:
 
     1. Preprocessed dataset in the fsaverage6 space, located in the folder "root/derivatives/fmriprep". 
@@ -69,20 +69,20 @@
     "root/derivatives/hpalfunc". In this case, you can skip the function "NCGP_hpal_map.m" and start
     by converting the surface based data into volumetric data using the function "NCGP_niml2nii.m".
 
-### Setting Script default paths and parameters
+### 5.2 Setting Script default paths and parameters
     1. open "data/scripts/NCGP_osdir.m" and edit the default path for the home directory (data folder)
     e.g homedir='F:\NCGP\data\';
 
-### Analysis scripts output
+### 5.3 Analysis scripts output
     After running the main analysis script (NCGP_main_hpal.m) to the end, the output will be as follows:
     1. Hypothesis 1: the script only prepares the data for a follow-up hypothesis testing. 
-## Results Visualization
+## 6. Results Visualization
     For viewing results using SUMA, you can:
         1. install AFNI on windows WSL1 (Problematic).
         2. install AFNI on another Mac or Linux PC and view the results on it.
         3. the best solution, install a linux distribution on VirtualBox for windows.
 
-## Expected dataset structure (After the analysis)
+## 7. Expected dataset structure (After the analysis)
 
     ├───data				# datasets folder
         ├───derivatives     	# Contains all datasets derived from the Original dataset.
@@ -132,12 +132,12 @@
         │       │       └───task-faces_ses-03_hemi-R_smooth-S0_onsets-face
         │       ├───sub-005 to sub-024
 
-## Disclaimers
+## 8. Disclaimers
 	- Some matlab code from Tsantani et al. 2019, Castello et al. 2021.
 	- External libraries included are; CosomoMVPA v1.1.0, Surfing toolbox v0.6, and Decoding toolbox v3.997.
 	- Helper functions tsv_read.m (https://www.mathworks.com/matlabcentral/fileexchange/32782-tsvread-importing-tab-separated-data), parfor_progressbar.m (https://www.mathworks.com/matlabcentral/fileexchange/53773-parfor_progressbar)
 
-## Todo
+## 9. Todo
     - Hypothesis 1 testing using JASP, ready JASP files.
     - Hypothesis 2 & 3 results location and format.
     - Needed software and setup for hypothesis 2 results visualization.

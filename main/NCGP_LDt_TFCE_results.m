@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Tries to calculate the results of a TFCE model previously estimated using TFCE toolbox for SPM.
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Tries to calculate the results of a TFCE model previously estimated using TFCE toolbox for SPM.
-% Note: Comments added only at the top; code unchanged.
-% ==========================================================================
-% Function signature
 function out=NCGP_LDt_TFCE_results(spmfolder, hemimasks)
 %-Apply to all contrasts if Inf is entered
 %----------------------------------------------------------------------

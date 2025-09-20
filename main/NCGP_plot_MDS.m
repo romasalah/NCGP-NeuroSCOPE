@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Create a 2-dimensional plot based on the multidimensional solution and a second plot of a dendrogram.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Create a 2-dimensional plot based on the multidimensional solution and a second plot of a dendrogram.
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_plot_MDS(alltasksmat,alltasksmat_subavg_sqRDM,taskname,gpnames_inout,preorpost)
 % Section: for-block starts
 for tsi2=1:length(alltasksmat)

@@ -1,11 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Hypothesis 3: calculates which correlation values are statistically significant by doing a signed rank test, then doing FDR correction for multiple comparisons
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Hypothesis 3: calculates which correlation values are statistically significant by doing a signed rank test, then doing FDR correction for multiple comparisons
-% ==========================================================================
-% Function signature detected
 function [sigFDR_idx, p_uncorrected, p_FDR_all, sig_FDR_meancorr, nonnan_idx_subses]=NCGP_RDMCorr_stats(wf, corrvals)
 % At the group level, for each ROI we compared the single-subject
 % correlations for each of the four comparisons (two crossmodal, two

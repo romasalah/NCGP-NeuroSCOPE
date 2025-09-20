@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Uses SPM Batch to combines right and left volumes containing only surface based voxels into one volume only with surface voxels.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Uses SPM Batch to combines right and left volumes containing only surface based voxels into one volume only with surface voxels.
-% Note: 
-% ==========================================================================
-% Function signature detected
 function NCGP_combinevols(wf)
 subs=wf.subs;
 sessions=wf.sessions;

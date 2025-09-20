@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Iterates over searchlights and extracts residuals of the General Linear Model for all searchlight voxels over the six runs.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Iterates over searchlights and extracts residuals of the General Linear Model for all searchlight voxels over the six runs.
-% Note:
-% ==========================================================================
-% Function signature detected
 function Residuals_currentidx=NCGP_residuals_condbyrun(allres, searchlight_idx,nscans_subrun)
 Residuals_currentidx=cell(length(searchlight_idx),1);
 f = waitbar(0,'Please wait...');

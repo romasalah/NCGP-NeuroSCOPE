@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Creates a full structure of premade paths for further retrieval
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Creates a full structure of premade paths for further retrieval
-% Note:
-% ==========================================================================
-% Function signature detected
 function p = NCGP_paths(wf)
 % Section: if-block starts
 if ~strcmp(wf.mainpath(end),filesep)

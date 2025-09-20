@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Decoding Face Identitiy (1 out of 8 identities) using CosomoMVPA and exports the (accuracy minus chance) maps as a NIML dataset and GIFTI images
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Decoding Face Identitiy (1 out of 8 identities) using CosomoMVPA and exports the (accuracy minus chance) maps as a NIML dataset and GIFTI images
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_decoding_surface_fmriprep(wf, edgesnum, glmperrun, runscell)
 %fMRI surface-based searchlights with LDA classifier
 % use cases:

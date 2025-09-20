@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: unzips and unpacks a 4D NIFTI image after fmriprep preprocessing
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: unzips and unpacks a 4D NIFTI image after fmriprep preprocessing
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_unpack4D(wf,cursub)
 mainFolder=[wf.mainpath filesep];
 subs=wf.subs;

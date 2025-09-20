@@ -1,11 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Projects a NIML surface dataset into a volume using fsaverage6 surfacevolume
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Projects a NIML surface dataset into a volume using fsaverage6 surfacevolume
-% ==========================================================================
-% Function signature detected
 function volname=NCGP_surf2vol(wf, curfolderdir, curimg, curhemi)
 curhemifull=[lower(curhemi) 'h'];
 pialfile=[curhemifull '.pial'];

@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Export correlation maps (localizer-masked and whole-brain) for visualization.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function NCGP_RDMcorr_plot(wf, RDMcorr, vo, fo, taskname, maskname, maskidx, sigFDRidx, oldds,MCCMethod, alpha, htail)
 % Section: for-block starts

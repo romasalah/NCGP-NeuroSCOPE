@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Plot each searchlight iteratively on the brain surface. Then all the searchlights together
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Plot each searchlight iteratively on the brain surface. Then all the searchlights together
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_surface_neighborhood_plot(nbrhood_sl,pial_fn)
 % Toolbox call → surfing_read
 [vo,fo]=surfing_read(pial_fn);

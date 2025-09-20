@@ -1,7 +1,5 @@
 % Overall goal: batch file to convert multiple files from GIFTI standard to
 % ASCII standard used by freesurfer
-% Note: 
-% Function signature detected
 function NCGP_batch_gii2asc(p, sub)
 sumafolder=p.refsuma;
 %bashbase=['. ~/.bash_profile;OMP_NUM_THREADS=16;'];

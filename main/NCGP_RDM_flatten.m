@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Flatten square RDM/LDt matrices into a long-form table (pairwise rows) for statistical analysis.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function RDM_flat=NCGP_RDM_flatten(RDM)
 RDM_flat={};

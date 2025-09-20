@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Plots the average values of ingroup and outgroup similarity ratings and betweengroup similarity ratings to visually check for outgroup homogeneity
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Plots the average values of ingroup and outgroup similarity ratings and betweengroup similarity ratings to visually check for outgroup homogeneity 
-% Note:
-% ==========================================================================
-% Function signature
 function NCGPH_plot_DSM(alltasksmat,alltasksmat_subavg,alldistavg,taskname,gpnames,preorpost,allingpnames)
 colors=repmat({'red','cyan','yellow','green','blue','magenta'},1,10);
 % Section: for-block starts

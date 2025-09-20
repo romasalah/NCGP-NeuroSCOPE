@@ -1,11 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Iterate over tasks (Physical appearance, social life, personality) and reverse scores (1 - rescaled original score). then creates a diagonal matrix (using left to right flip then 90 degree rotation). Finally plots a Multidimensional scale solution.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Iterate over tasks (Physical appearance, social life, personality) and reverse scores (1 - rescaled original score). then creates a diagonal matrix (using left to right flip then 90 degree rotation). Finally plots a Multidimensional scale solution.
-% ==========================================================================
-% Function signature detected
 function alltasksmat_subavg_sqRDM=NCGPH_plot(alltasksmat, allingpsim, alloutgpsim,allbtgpsim,allingpsim_distavg, alloutgpsim_distavg, allbtgpsim_distavg,allingpnames, taskname, gpnames,gpnames_inout,preorpost)
 % Section: for-block starts
 for tsi2=1:length(alltasksmat)

@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Define and estimate localizer contrast maps (e.g., Faces > Objects) after GLM, compatible with hyperaligned workflow.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [conimgname,conimg_clustNum,spmdir]=NCGP_localiser_contrasts_hpal(wf, runscell)
 hemis=wf.hemis;

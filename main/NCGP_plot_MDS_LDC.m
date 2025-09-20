@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Plot MDS (or similar) from LDt/LDC distances for visualization/QA.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function NCGP_plot_MDS_LDC(wf, ldt_avg,nbrhood_nodes, TFCE_stats, stats, slnames,maskname,MCC)
 lbls={'AH1','AH2','AH3','AH4','NAT1','NAT2','NAT3','NAT4'};

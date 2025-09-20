@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Export LDt (or RDM-like) matrices across sessions/hemispheres into files for later stats/LLM usage.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function full_FFXtbl=NCGP_RDM_export(wf, LDt, searchlights, vo, fo, maskname, masknodes)
     cursub='group';

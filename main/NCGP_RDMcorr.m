@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Compute correlations between behavioral RDMs (physical/personality/social) and neural LDt per searchlight.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [coefs, pvals, sigidx, sigidx_coefs]=NCGP_RDMcorr(wf, RDMS_subsesshemi, targetRDM, corrmethod, hTail, alpha)
 targetRDM_full= targetRDM + targetRDM';

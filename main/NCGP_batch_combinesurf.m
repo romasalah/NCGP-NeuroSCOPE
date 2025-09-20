@@ -1,8 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: batch file to combine 2 hemispheres
 % (surface-based) into one sutface. Either using surfing toolbox or using AFNI
-% Note: Comments only; code unchanged.
-% Function signature detected
 function NCGP_batch_combinesurf(wf, subjsurfacepath, surffiles, method, ico)
 % Section: for-block starts
 for i=1:length(surffiles)

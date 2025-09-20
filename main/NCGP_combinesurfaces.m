@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Merge two datasets of right and left hemisphere with values into one brain surface
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Merge two datasets of right and left hemisphere with values into one brain surface
-% Note: 
-% ==========================================================================
-% Function signature detected
 function [v_merged, f_merged] = NCGP_combinesurfaces(filenames)
 % merge surface filesep
 %

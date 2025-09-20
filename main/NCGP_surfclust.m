@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Clusterize a surface data image with radius rmm and area amm
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Clusterize a surface data image with radius rmm and area amm
-% Note:
-% ==========================================================================
-% Function signature detected
 function outfn=NCGP_surfclust(wf, inputdset, curhemi)
 curhemifull=[lower(curhemi) 'h'];
 % Call → NCGP_paths

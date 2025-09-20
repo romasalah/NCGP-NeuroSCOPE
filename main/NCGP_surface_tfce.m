@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Run TFCE or surface-based cluster enhancement and output corrected maps.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
     function NCGP_surface_tfce(wf, surfdscell, nulldscells,cluster_nbrhood,maskname, mask_idx,tasknames,oldds,vo,fo)
 %% Run Threshold-Free Cluster Enhancement (TFCE)

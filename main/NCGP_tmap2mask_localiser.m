@@ -1,6 +1,5 @@
 % ==========================================================================
 % Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
-% Note: Comments added only at the top; code unchanged.
 % ==========================================================================
 function [allnii,roismat,wholeroismat,newmaskbin]=NCGP_tmap2mask_localiser(localiserspmmatdir,conimgname,loc_sessions,loc_runs,runsprefix)
 mainPath = '/Volumes/EVO8602TB/NCGP/Data/';

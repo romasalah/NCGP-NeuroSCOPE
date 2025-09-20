@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Calculates LDt values without averaging the 6 runs done by each participant
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Calculates LDt values without averaging the 6 runs done by each participant
-% Note:
-% ==========================================================================
-% Function signature
 function [LLM_LDtcorr_SepRun_alltasks, LLM_LDtcorr, LDtcorr, sigFDR_idx, p_FDR, p_uncorrected, sig_FDR_meancorr]=NCGP_LDtcorr_SeparateRuns(wf2, ds, LDt_byrun, taskname, vo, fo, mask, maskidx_subsesshemi)
 LLM_LDtcorr_SepRun_alltasks={};
 % Section: for-block starts

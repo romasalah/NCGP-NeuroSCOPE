@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Hypothesis 2, converts the resulting TFCE-corrected volumes for hypothesis 2 first and second t-tests and the intersection between the two t-tests. the first t-test is session difference and the second t-test is post-interventional difference between the average between-group distaance and the average wirhin-group distance.
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Hypothesis 2, converts the resulting TFCE-corrected volumes for hypothesis 2 first and second t-tests and the intersection between the two t-tests. the first t-test is session difference and the second t-test is post-interventional difference between the average between-group distaance and the average wirhin-group distance.
-% Note:
-% ==========================================================================
-% Function signature
 function signodes=NCGP_LDt_TFCE_vol2surf(wf, maskname, curhemi)
 % Call → NCGP_paths
 paths=NCGP_paths(wf);

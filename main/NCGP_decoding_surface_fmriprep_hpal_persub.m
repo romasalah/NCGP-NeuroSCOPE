@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Decoding Face Identitiy (1 out of 8 identities) using CosomoMVPA and exports the (accuracy minus chance) maps as a NIML dataset and GIFTI images. This version is modified to use hyperaligned images. It creates 4D surface timeline first and optionally z-scores the data.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Decoding Face Identitiy (1 out of 8 identities) using CosomoMVPA and exports the (accuracy minus chance) maps as a NIML dataset and GIFTI images. This version is modified to use hyperaligned images. It creates 4D surface timeline first and optionally z-scores the data.
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_decoding_surface_fmriprep_hpal_persub(wf, runscell, nbrorig_subsesshemi, vo_subsesshemi, fo_subsesshemi)
 %fMRI surface-based searchlights with LDA classifier
 % use cases:

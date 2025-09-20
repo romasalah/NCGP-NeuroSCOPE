@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Project volumetric t-maps from GLM to fsaverage6 cortical surface (GIFTI/NIML).
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [clustfn, smoothedfn, clustvolname]=NCGP_tmap2surf_hpal(wf,contrastimg, spmdir)
 % Call → NCGP_paths: Project function call

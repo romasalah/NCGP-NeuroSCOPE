@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Aggregate correlation values across runs; prepare per-searchlight correlation statistics.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [LLM_LDtcorr, LDtcorr, sigFDR_idx, q_values, LDtcorr_pval, sig_FDR_coef, corr_sesshemi, pval_sesshemi]=NCGP_LDtcorr_AvgRun(wf2, ds, LDt_byrun, taskname, vo, fo, mask, maskidx_subsesshemi)
 

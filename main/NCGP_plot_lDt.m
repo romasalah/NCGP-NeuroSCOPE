@@ -1,11 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Iterates over searchlights and plots LDt value for each searchlight
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Iterates over searchlights and plots LDt value for each searchlight
-% ==========================================================================
-% Function signature detected
 function NCGP_plot_lDt(wf,nbrhood_nodes,ldt_cv)
 %% ######### Plot LDt RDMs ##########
 % Call → NCGP_paths

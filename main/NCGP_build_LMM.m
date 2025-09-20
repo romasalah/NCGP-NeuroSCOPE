@@ -2,11 +2,6 @@
 % Overall goal (user-provided): Overall goal: Creates a condition response table compatible with doing Linear Mixed Modelling in JASP or R
 % Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Creates a condition response table compatible with doing Linear Mixed Modelling in JASP or R
-% Note: 
-% ==========================================================================
-% Function signature detected
 function [alltbls,allsubtables,allsubsavgs]=NCGP_build_LMM(wf,pretables,posttables,ingpnames)
 alltbls=cell(0,7);
 allsubtables=[];

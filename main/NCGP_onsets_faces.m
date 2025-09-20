@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function facessessruns= NCGP_onsets_faces(wf)
 % Call → NCGP_paths: Project function call

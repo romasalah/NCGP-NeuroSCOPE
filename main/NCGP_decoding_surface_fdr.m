@@ -2,11 +2,6 @@
 % Overall goal (user-provided): Overall goal: Runs a permutation test either on a signularity container or directly through python. the code calls the permutation test file run_permtest_bootstrap.py and waits for it to finish.
 % Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Runs a permutation test either on a signularity container or directly through python. the code calls the permutation test file run_permtest_bootstrap.py and waits for it to finish.
-% Note: Comments added only at the top; code unchanged.
-% ==========================================================================
-% Function signature detected
 function NCGP_decoding_surface_fdr(wf)
 mainPath = wf.mainpath;
 sessions=wf.sessions;

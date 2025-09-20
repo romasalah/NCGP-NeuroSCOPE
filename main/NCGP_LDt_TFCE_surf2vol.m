@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Converts hypothesis 2 results from surface-based NIML datasets to volumetric images.
-% Note: Added comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Converts hypothesis 2 results from surface-based NIML datasets to volumetric images.
-% Note: 
-% ==========================================================================
-% Function signature
 function [preb_vols,prew_vols,postb_vols,postw_vols]=NCGP_LDt_TFCE_surf2vol(wf, LDCvals,oldds,curhemi,maskname)
 % Call → NCGP_paths
 paths=NCGP_paths(wf);

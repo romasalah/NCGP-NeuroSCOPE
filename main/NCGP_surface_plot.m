@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: visualize the preloaded NIML data on surfaces, if the afni matlab toolbox is present
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: visualize the preloaded NIML data on surfaces, if the afni matlab toolbox is present
-% Note:
-% ==========================================================================
-% Function signature detected
 function NCGP_surface_plot(vo,fo,dsetdata,show_edge)
 nvertices=size(vo,1);
 opt=struct();

@@ -1,6 +1,5 @@
 % ==========================================================================
 % Overall goal: Failed to guess the function goal from project context. (Per request, leaving file body unannotated.)
-% Note: Comments added only at the top; code unchanged.
 % ==========================================================================
 function RDMcorr_roibehav=NCGP_ROI_behavrsm(voxcondrun,validrois)
 behavPath='/Volumes/EVO8602TB/Omar/NCGP/';

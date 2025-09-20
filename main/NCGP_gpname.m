@@ -1,12 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Retrieves the participant ingroup (AH or NAT) and creates a string of 4 ingroups and 4 outgroups based on the participant group membership.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Retrieves the participant ingroup (AH or NAT) and creates a string of 4 ingroups and 4 outgroups based on the participant group membership.
-% Note:
-% ==========================================================================
-% Function signature detected
 function [allingpnames, gpnames,allgpnames, gpnames_inout]=NCGPH_gpname(subs)
 gpnames_AH={'AH1','AH2','AH3','AH4','NAT1','NAT2','NAT3','NAT4'};
 gpnames_NAT={'NAT1','NAT2','NAT3','NAT4','AH1','AH2','AH3','AH4'};

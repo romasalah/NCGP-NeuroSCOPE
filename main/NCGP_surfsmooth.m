@@ -1,11 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Uses freesurfer to smooth the surface using Heat 07 method.
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Uses freesurfer to smooth the surface using Heat 07 method.
-% ==========================================================================
-% Function signature detected
 function outfn=NCGP_surfsmooth(wf, outputdir, inputvol, curhemi,singimg)
 curhemifull=[lower(curhemi) 'h'];
 % Call → NCGP_osdir

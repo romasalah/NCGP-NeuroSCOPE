@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Create and write t-statistic visualizations (localizer-masked or whole-brain) for LDt difference tests.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [sig, sessdiff_nii, postcontrast_nii ]=NCGP_LDt_Diffttest_viz(wf, ttest_stats, vo, fo, maskname, slnames, oldds,maskidx_subsesshemi, MCC)
 % Call → NCGP_paths: Project function call

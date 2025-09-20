@@ -1,13 +1,6 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Estimates threshold free cluster enhancement model using 10 thousand permutations. Options are SPM TFCE toolbox or MATLAB TFCE toolbox
-% Note: Comments only; code unchanged.
 % ==========================================================================
-% ==========================================================================
-% Overall goal: Estimates threshold free cluster enhancement model using 10 thousand permutations. Options are SPM TFCE toolbox or MATLAB TFCE toolbox
-% Note:
-% ==========================================================================
-% Function signature detected
-% Call → NCGP_LDt_TFCE
 function g=NCGP_LDt_TFCE(wf,TFCEmethod, hemimasks,spmmats,maskname, ds)
 % Section: switch-block starts
 switch TFCEmethod

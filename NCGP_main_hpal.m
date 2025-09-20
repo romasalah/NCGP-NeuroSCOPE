@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Master driver for the hyperalignment-based, surface MVPA workflow: runs onset parsing, GLMs, localizer contrasts, surface projections, searchlight neighborhoods, LDt computation, group stats, and map export.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ========n==================================================================
 Step=2;
 if Step == 1

@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Wrap surface/HPA steps: fsaverage6 templates/masks, niml/nii conversions, or SUMA interfacing.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function NCGP_surf_hpal(wf)
 %% Variable Naming

@@ -1,7 +1,6 @@
 % ==========================================================================
 % Overall goal: Cache-control for LDt results: detect and reuse previously computed LDt scores to avoid recomputation.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
-% Note: Added comments only; code logic unchanged.
 % ==========================================================================
 function [LDt_done, ldt_cv, ldt_cv_avg, empLDts, empLDts_avg]=NCGP_LDt_CheckSave(wf, ldt_fn, nbrhoods_idx)
 LDt_done=0;
