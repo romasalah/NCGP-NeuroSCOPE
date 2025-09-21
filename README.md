@@ -81,6 +81,13 @@
         1. install AFNI on windows WSL1 (Problematic).
         2. install AFNI on another Mac or Linux PC and view the results on it.
         3. the best solution, install a linux distribution on VirtualBox for windows.
+### 6.1 Visualising Hypothesis 1 results
+	The MATLAB script NCGP_main_hpal.m outputs preprocessed behavioral data and exports it in tables, but it doesn't do hypothesis testing. To test for and visualize hypothesis 1 results, you need to open each one of the three included .jasp files using JASP software, then re-sync the data table to the exported table () which is in /{YourRootFolder}/BehavOutputs. The jasp files will update the analysis based on your data.
+
+ ### 6.2 Visualising Hypothesis 2 results
+ 	Hypothesis 2 results are exported to /{YourRootFolder}/LDt/group/fmriprep/SPM_GLM/LDCdiff. The folder contains one figure for each searchlight, which significantly satisfies the alternate hypothesis (H1). The figure is structured as follows:
+	1. Top row: 3D mesh of the brain surface showing the location of the searclight.
+	2. Bottom left and center: 2D approximation of the difference between brain activity in this searchlight during each of the 8 conditions, each condtion is repesented as a dot, and the distances between the dots represent the difference in activitay pattern between the dots. The conditions are labelled either as AH (face perception of a humanities student) or as NAT (face perception of a Natural Science student). The left and center bottom plots represent the distance before and after the intervention, respectively.
 
 ## 7. Expected dataset structure (After the analysis)
 
