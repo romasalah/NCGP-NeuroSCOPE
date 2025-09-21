@@ -154,7 +154,5 @@
 	- Helper functions tsv_read.m (https://www.mathworks.com/matlabcentral/fileexchange/32782-tsvread-importing-tab-separated-data), parfor_progressbar.m (https://www.mathworks.com/matlabcentral/fileexchange/53773-parfor_progressbar)
 
 ## 9. Todo
-    - Hypothesis 1 testing using JASP, ready JASP files.
-    - Hypothesis 2 & 3 results location and format.
-    - Needed software and setup for hypothesis 2 results visualization.
+	- include hypothesis 1 jasp files
     - Update and confirm the after-analysis data structure. 
