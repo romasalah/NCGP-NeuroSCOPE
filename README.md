@@ -81,6 +81,22 @@
         1. install AFNI on windows WSL1 (Problematic).
         2. install AFNI on another Mac or Linux PC and view the results on it.
         3. the best solution, install a linux distribution on VirtualBox for windows.
+### 6.1 Visualising Hypothesis 1 results
+	The MATLAB script NCGP_main_hpal.m outputs preprocessed behavioral data and exports it in tables, but it doesn't do hypothesis testing. To test for and visualize hypothesis 1 results, you need to open each one of the three included .jasp files using JASP software, then re-sync the data table to the exported table () which is in /{YourRootFolder}/BehavOutputs. The jasp files will update the analysis based on your data.
+
+ ### 6.2 Visualising Hypothesis 2 results
+ 	Hypothesis 2 results are exported to /{YourRootFolder}/LDt/group/fmriprep/SPM_GLM/LDCdiff. The folder contains one figure for each searchlight, which significantly satisfies the alternate hypothesis (H1). The figure is structured as follows:
+	1. Top row: 3D mesh of the brain surface showing the location of the searclight.
+	2. Bottom left and center: 2D approximation of the difference between brain activity in this searchlight during each of the 8 conditions, each condtion is repesented as a dot, and the distances between the dots represent the difference in activitay pattern between the dots. The conditions are labelled either as AH (face perception of a humanities student) or as NAT (face perception of a Natural Science student). The left and center bottom plots represent the distance before and after the intervention, respectively.
+ 	3. Bottom right: plot of pre- and post-intervention discriminability scores. Within-group discriminability scores are the cases where discriminability was calculated between two conditions of the same group,  i.e. two AH conditons or two NAT conditions. In contrast, Between-group discriminability scores are the cases where discriminability was calculated between two conditions of different groups, i.e. AH and NAT conditions. the plot also reports the t-statistic of both t-tests which were conducted at this searchlight. a) Session difference t-stat: shows significant increase in the value; (between-group discriminability minus within-group discriminability) from before to after the intervention, indicating the clear differentiation of conditions into two distinct groups. b) post-intervention t-stat: showing significantly higher between-group discriminability scores than within-group discriminability scores in the post-intervention session.
+
+### Visualizing hypothesis 3 results
+	Hypothesis 3 results are stored in /{YourRootFolder}/RDMcorr/group/fmriprep/SPM_GLM. The results are NiML datasets of the searchlights that showed a significant correlation between post-intervention discriminability scores and three behavioural dissimilarity matrices: perceived dissimilarity in physical facial appearance, personality, and social life. Results which were corrected for multiple comparisons contain "_corr-TFCE_" in their name. Instructions to visualize the results:
+	1. Install AFNI/SUMA on windows WSL, another PC running linux or Mac, or a virtual linux machine inside windows.
+ 	2. Make sure that you have the "fsaverage6" folder located in /{YourRootFolder}/derivatives/freesurfer/fsaverage6/
+  	3. Make sure that the command "suma" is in your terminal path.
+    4. In your wsl, linux or mac terminal, run the command "suma -spec /path/to/fsaverage6/fsaverage6_lh{or _rh}.spec. Choose the hemisphere which matches the hemisphere of the results image you want to view.
+	5. Press "CTRL + S" to load SUMA's "Object Controller", then choose "load dataset" and navigate to the desired dataset in RDMcorr folder
 
 ## 7. Expected dataset structure (After the analysis)
 
@@ -138,7 +154,5 @@
 	- Helper functions tsv_read.m (https://www.mathworks.com/matlabcentral/fileexchange/32782-tsvread-importing-tab-separated-data), parfor_progressbar.m (https://www.mathworks.com/matlabcentral/fileexchange/53773-parfor_progressbar)
 
 ## 9. Todo
-    - Hypothesis 1 testing using JASP, ready JASP files.
-    - Hypothesis 2 & 3 results location and format.
-    - Needed software and setup for hypothesis 2 results visualization.
+	- include hypothesis 1 jasp files
     - Update and confirm the after-analysis data structure. 
