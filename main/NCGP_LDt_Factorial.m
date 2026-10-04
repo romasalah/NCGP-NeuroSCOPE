@@ -6,7 +6,11 @@ function [spmmat, curhemimask, sessdifft, postcontrastt]=NCGP_LDt_Factorial(wf,p
 paths=NCGP_paths(wf);
 outputfolder=[paths.mp 'derivatives' filesep 'LDC' filesep 'group' filesep wf.pre filesep wf.glm filesep 'hemi-' curhemi '_mask-' maskname filesep];
 curhemimaskdir=dir([paths.hpal wf.origsubs{1} filesep 'ses-02' filesep 'func' filesep 'volumetric' filesep '*faces_run-01*' curhemi '.func_mask.nii']);
-curhemimask=[curhemimaskdir.folder filesep curhemimaskdir.name];
+if strcmp(maskname,'none')
+    curhemimask='';
+else
+    curhemimask=[curhemimaskdir.folder filesep curhemimaskdir.name];
+end
 curpreb_vols=strrep(preb_vols,'.nii','.nii,1');
 curprew_vols=strrep(prew_vols,'.nii','.nii,1');
 curpostb_vols=strrep(postb_vols,'.nii','.nii,1');
@@ -117,13 +121,15 @@ matlabbatch{3}.spm.stats.con.consess{1}.tcon.sessrep = 'none';
 matlabbatch{3}.spm.stats.con.delete = 0;
 matlabbatch{4}.spm.stats.results.spmmat = {[outputfolder 'SPM.mat']};
 matlabbatch{4}.spm.stats.results.conspec.contrasts = 1;
-matlabbatch{4}.spm.stats.results.conspec.threshdesc = maskname;
 matlabbatch{4}.spm.stats.results.conspec.thresh = 0.05;
 matlabbatch{4}.spm.stats.results.conspec.extent = 0;
-matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {curhemimask};
-matlabbatch{4}.spm.stats.results.conspec.mask.image.mtype = 0;
 matlabbatch{4}.spm.stats.results.units = 1;
 matlabbatch{4}.spm.stats.results.export{1}.tspm.basename = 'sessdiff';
+if ~strcmp(maskname,'none')
+    matlabbatch{4}.spm.stats.results.conspec.threshdesc = maskname;
+    matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {curhemimask};
+    matlabbatch{4}.spm.stats.results.conspec.mask.image.mtype = 0;
+end
 save([outputfolder 'matlabbatch.mat'],'matlabbatch');
 % Toolbox call → spm_jobman
 spm_jobman( 'run', matlabbatch );
@@ -134,13 +140,15 @@ matlabbatch{1}.spm.stats.con.consess{1}.tcon.weights = [0 0 1 -1];
 matlabbatch{1}.spm.stats.con.consess{1}.tcon.sessrep = 'none';
 matlabbatch{2}.spm.stats.results.spmmat = {[outputfolder 'SPM.mat']};
 matlabbatch{2}.spm.stats.results.conspec.contrasts = 2;
-matlabbatch{2}.spm.stats.results.conspec.threshdesc = maskname;
 matlabbatch{2}.spm.stats.results.conspec.thresh = 0.05;
 matlabbatch{2}.spm.stats.results.conspec.extent = 0;
-matlabbatch{2}.spm.stats.results.conspec.mask.image.name = {curhemimask};
-matlabbatch{2}.spm.stats.results.conspec.mask.image.mtype = 0;
 matlabbatch{2}.spm.stats.results.units = 1;
 matlabbatch{2}.spm.stats.results.export{1}.tspm.basename = 'postcontrast';
+if ~strcmp(maskname,'none')
+    matlabbatch{2}.spm.stats.results.conspec.threshdesc = maskname;
+    matlabbatch{2}.spm.stats.results.conspec.mask.image.name = {curhemimask};
+    matlabbatch{2}.spm.stats.results.conspec.mask.image.mtype = 0;
+end
 % Toolbox call → spm_jobman
 spm_jobman( 'run', matlabbatch );
 sessdifft=[outputfolder 'spmT_0001_sessdiff.nii'];
