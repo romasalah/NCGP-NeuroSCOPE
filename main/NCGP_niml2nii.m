@@ -13,8 +13,8 @@ sumasuffix='derivatives/freesurfer/fsaverage6/SUMA/';
 % Section: if-block starts
 mainpathin='/idata/';
 mainpathout=wf.mainpath;
-basedir='/mnt/f/NCGP/data/';
-imgbase=[p.imgpathout 'singularity/*V5*.img'];
+basedir='/mnt/d/Omar/NCGP/data/';
+imgbase=[p.imgpathout 'singularity/neurodockerV5*.img'];
 imglistdir = dir(imgbase);
 imglist={imglistdir(~[imglistdir(:).isdir]).name};
 % Section: for-block starts
@@ -82,8 +82,7 @@ for subi=1:length(subs)
             pialfn=[sumafolder pial];
             % Toolbox call → surfing_read
             medialmaskdata=surfing_read(medialmaskfn);
-            HAdir=[p.hpal subs{subi} filesep sess{sessi} filesep 'func' filesep];
-            fprefix=[subs{subi} '_' sess{sessi} '_task-' wf.task '*hemi-' curside '_space-fsaverage6_bold'];
+            HAdir=[p.pre subs{subi} filesep sess{sessi} filesep 'func' filesep];
             dsetfilelist=dir([HAdir filesep subs{subi} '_' sess{sessi} '_task-' wf.task '*' curside '.func.niml.dset']);
             tempdir=[HAdir filesep 'volumetric' filesep];
             tempdirin=strrep(tempdir,mainpathout,mainpathin);

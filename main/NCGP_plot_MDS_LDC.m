@@ -24,7 +24,7 @@ for hi= 1:length(wf.hemis)
     minval_post={};
     minval_post_abs={};
     sig_intersect=find(TFCE_stats{hi}.intersection);
-% Section: if-block starts
+    % Section: if-block starts
     if ~isempty(sig_intersect)
         sig_sessdiff=TFCE_stats{hi}.sessdiff(sig_intersect);
         [sigsessord, sig_sessdiff_ord{hi}]=sort(sig_sessdiff,'descend');
@@ -33,17 +33,17 @@ for hi= 1:length(wf.hemis)
         prew{hi}=stats{1,hi}.prew(sig_intersect, :);
         postb{hi}=stats{1,hi}.postb(sig_intersect, :);
         postw{hi}=stats{1,hi}.postw(sig_intersect, :);
-% Section: switch-block starts
+        % Section: switch-block starts
         switch MCC
-% Section: case-block starts
+            % Section: case-block starts
             case 'none'
                 postcontrast{hi}=stats{1,hi}.tstat_BGpostminusWGpost(sig_intersect, :);
                 sessdiff{hi}=stats{1, hi}.tstat_BGdiffbminusWGdiff(sig_intersect, :);
-% Section: case-block starts
+                % Section: case-block starts
             case 'TFCE'
                 postcontrast{hi}=TFCE_stats{1,hi}.postcontrast(sig_intersect, :);
                 sessdiff{hi}=TFCE_stats{1, hi}.sessdiff(sig_intersect, :);
-% Section: case-block starts
+                % Section: case-block starts
             case 'FDR'
                 postcontrast{hi}=stats{1,hi}.tstat_difftest(sig_intersect, :);
                 sessdiff{hi}=stats{1, hi}.tstat_postcontrast(sig_intersect, :);
@@ -53,11 +53,11 @@ for hi= 1:length(wf.hemis)
         nbrhood_nodes_pre{hi}=nbrhood_nodes{1,hi}(sig_intersect);
         nbrhood_nodes_post{hi}=nbrhood_nodes{2,hi}(sig_intersect);
         pialfn{hi}=[p.refsuma filesep lower(wf.hemis{hi}) 'h.pial.asc'];
-% Toolbox call → surfing_read
+        % Toolbox call → surfing_read
         [vo{hi},fo{hi}]=surfing_read(pialfn{hi});
         curmat_pre=[];
         curmat_post=[];
-% Section: for-block starts
+        % Section: for-block starts
         for sli =1:length(ldc_avg_pre{hi})
             curmat_pre=ldc_avg_pre{hi}{sli};
             curmat_post=ldt_avg_post{hi}{sli};
@@ -80,12 +80,15 @@ mkdir([p.LDC 'LDCdiff']);
 close all;
 % Section: for-block starts
 for hi= 1:length(wf.hemis)
-% Section: for-block starts
+    % Section: for-block starts
     for mci = 1:length(MCC)
-% Section: if-block starts
+        % Section: if-block starts
         if ~isempty(sig_intersect)
             cursli_list=sig_sessdiff_ord{hi};
-% Section: for-block starts
+            % Section: for-block starts
+            NCGP_plot_LDC_allsls(vo,fo,cursli_list,nbrhood_nodes_pre,sigsls,hi,maskname,wf,p,opt)
+            NCGP_plot_LDC_allsls_plain(vo,fo,cursli_list,nbrhood_nodes_pre,sigsls,hi,maskname,wf,p,opt)
+
             for sli_idx =1:length(cursli_list)
                 sli=cursli_list(sli_idx);
                 curslname=sigsls{hi}{sli};

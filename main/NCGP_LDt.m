@@ -5,7 +5,7 @@ for si = 1:length(wf.sessions)
 
     for hi = 1:length(wf.hemis)
         curnbrhoods_idx = nbrhoods_idx{si,hi};
-        ldt_fn{si,hi} = [p.mp filesep 'LDC' filesep 'group' filesep wf.pre filesep wf.glm ...
+        ldt_fn{si,hi} = [p.mp filesep 'LDt' filesep 'group' filesep wf.pre filesep wf.glm ...
             filesep 'LDtbyrun_sub-group_' wf.sessions{si}  '_hemi-' wf.hemis{hi} '_mask-' maskname '.mat'];
 
         fprintf('\n \n ##################### Session %d ###################### \n \n', si);

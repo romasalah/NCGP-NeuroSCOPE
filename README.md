@@ -71,7 +71,7 @@
 
 ### 5.2 Setting Script default paths and parameters
     1. open "data/scripts/NCGP_osdir.m" and edit the default path for the home directory (data folder)
-    e.g homedir='F:\NCGP\data\';
+    e.g homedir='D:\Omar\NCGP\data\';
 
 ### 5.3 Analysis scripts output
     After running the main analysis script (NCGP_main_hpal.m) to the end, the output will be as follows:

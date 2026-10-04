@@ -2,7 +2,7 @@
 % Overall goal: Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % ==========================================================================
-function [slnames, statresults,signodes_surf]=NCGP_LDt_stats(wf, maskname, stattype, oldds)
+function [slnames, statresults,signodes_surf]=NCGP_LDt_stats(wf, maskname, stattype, oldds, ldt_avgruns)
 signodes_surf=[];
 % Section: for-block starts
 for subi=1:length(wf.subs)
@@ -11,7 +11,7 @@ for subi=1:length(wf.subs)
         curhemi=wf.hemis{hi};
 % Call → NCGP_paths: Project function call
         paths=NCGP_paths(wf);
-        outputfolder=[paths.mp 'derivatives' filesep 'LDC' filesep wf.subs{subi} filesep wf.pre filesep wf.glm filesep ];
+        outputfolder=[paths.mp 'LDC' filesep wf.subs{subi} filesep wf.pre filesep wf.glm filesep ];
         fnprefix=[outputfolder 'sub-' wf.subs{subi} '_task-' wf.task '_hemi-' curhemi '_mask-' maskname  '_ses-all' ];
         llmdesfn=[fnprefix '_prepost_LLM_crctd.csv'];
         preposttbl=readtable(llmdesfn);
@@ -101,11 +101,12 @@ for subi=1:length(wf.subs)
             case 'diff t-test'
                 allsls=unique(preposttbl.Searchlight);
                 slnames{subi,hi}={};
-                f = waitbar(0, ['Running repeated measures ANOVA for Searchlight No. 0 out of ' num2str(length(allsls))]);
+                f = waitbar(0, ['Running diff t-test for Searchlight No. 0 out of ' num2str(length(allsls))]);
 % Section: for-block starts
                 for sli = 1:length(allsls)
                     waitbar(sli/length(allsls), f, ['Running repeated measures ANOVA for Searchlight No. ' num2str(sli) ' out of ' num2str(length(allsls))]);
                     cursl=allsls{sli};
+                    
                     curtbl=preposttbl(strcmp(preposttbl.Searchlight,cursl),:);
                     prew(sli,:)=curtbl.LDCvalue(strcmp(curtbl.Contrast, 'Within-group') & strcmp(curtbl.Session, 'ses-02'));
                     postw(sli,:)=curtbl.LDCvalue(strcmp(curtbl.Contrast, 'Within-group') & strcmp(curtbl.Session, 'ses-03'));
@@ -174,6 +175,7 @@ for subi=1:length(wf.subs)
                     hbar.iterate(1);
                 end
                 close(hbar);
+                
                 slnames{hi}=sls_currentsesshemi;
                 statresults{hi}.preb=preb;
                 statresults{hi}.prew=prew;
@@ -184,4 +186,4 @@ for subi=1:length(wf.subs)
         end
     end
 end
-end
+end 

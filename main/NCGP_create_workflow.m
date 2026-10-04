@@ -18,9 +18,10 @@ switch exp
             sublist{end+1}=num2str(subsnum2(i2));
         end
 % Call → NCGP_osdir: Project function call
-        wf.mainpath=[NCGP_osdir() 'BehavNCGP' filesep];
+        wf.mainpath=[NCGP_osdir() 'derivatives' filesep 'BehavNCGP' filesep];
     case 'NCGP'
         subsnum=[4:8, 10:13, 15,16, 19:24];
+        %subsnum=[15,16, 19:24];
         subs=string(subsnum);
         sublist={};
 % Section: for-block starts
@@ -56,7 +57,7 @@ switch wfname
         wf.modeltype='regperidentity';
         wf.alignment=alignment;
         wf.refsub='fsaverage6';
-        wf.volskip=0;
+        wf.volskip=5;
         wf.hemis=hemis;
         wf.RDMcorr.Method = 'spearman';
         wf.RDMcorr.htail = 'right';
@@ -73,6 +74,8 @@ switch wfname
         wf.modelblackresponse=0;
 % Section: case-block starts
     case 'localizer'
+        wf.sessions={'ses-01','ses-02', 'ses-03'};
+        wf.runs={'run-01','run-02','run-03','run-04'};
         wf.hemis=hemis;
         wf.glmresiduals=0;
         wf.pre='fmriprep';
@@ -84,8 +87,8 @@ switch wfname
         wf.modeltype='regperidentity';
         wf.volskip=0;
         wf.smooth='S6';
-        wf.threshold=0.001;
-        wf.mink=50;
+        wf.threshold=0.05;
+        wf.mink=3;
         wf.refsub='fsaverage6';
         wf.group=1;
         wf.smkernel=6;

@@ -1,0 +1,8 @@
+% TFCE Toolbox
+% Version  349 TFCE1.3.3 2026-08-11
+
+======================================================================
+Installation
+======================================================================
+
+First, unpack the zip-file and copy or link the cat12 folder to the spm12/toolbox directory. You can start the toolbox by choosing "TFCE" in the "Toolbox" selector or calling "spm_TFCE" from the Matlab command line. Alternatively you can use the "Batch" button: select SPM | Tools | TFCE. 

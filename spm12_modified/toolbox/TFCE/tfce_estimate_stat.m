@@ -1,0 +1,4115 @@
+function tfce_estimate_stat(job)
+% main TFCE function for estimating TFCE statistics
+%
+% FORMAT tfce_estimate_stat(job)
+% job        - job from tbx_cfg_tfce
+%
+% job fields:
+%   data
+%
+%   nproc
+%     0 - no multi-threading
+%     x - number of processors for multi-threading
+%
+%   nuisance_method
+%     method to deal with nuisance variables
+%     0 - Draper-Stoneman
+%     1 - Freedman-Lane
+%     2 - Smith
+%
+%   conspec.titlestr
+%     heading of the results page, determined automatically if empty
+%
+%   conspec.contrasts
+%     Inf - interactive selection of contrast
+%     x   - index of contrast(s)
+%
+%   conspec.n_perm
+%     number of permutations, optionally [n_perm n_perm_break]
+%
+%   use_sequential_stopping
+%     0 - always run the full number of permutations
+%     1 - stop as soon as nothing in the image can become significant
+%
+%   mask
+%     mask for restricting TFCE estimation (SVC)
+%
+%   exch_blocks
+%     exchangeability blocks for longitudinal or repeated-measures designs
+%
+%   tbss
+%     2D optimization for TBSS data (E=1 instead of E=0.5)
+%
+% ______________________________________________________________________
+%
+% Christian Gaser
+% Structural Brain Mapping Group (https://neuro-jena.github.io)
+% Departments of Neurology and Psychiatry
+% Jena University Hospital
+% ______________________________________________________________________
+
+% disable parallel processing for only one SPM.mat file
+if numel(job.data) == 1
+  job.nproc = 0;
+end
+
+% split job and data into separate processes to save computation time
+if isfield(job,'nproc') && job.nproc>0 && (~isfield(job,'process_index')) && exist('cat_parallelize','file')
+  cat_parallelize(job,mfilename,'data');
+  return
+% or run though all data step-by-step
+elseif numel(job.data)>1
+  data = job.data;
+  for i=1:numel(job.data)
+    job = rmfield(job,'data');
+    job.process_index = i;
+    job.data{1} = data{i};
+    tfce_estimate_stat(job)
+  end
+  return
+end
+
+% Use tail approximation from the Gamma distribution for corrected P-values
+use_gamma_tail_approximation = true;
+
+% Use tail approximation from the Generalised Pareto distribution for UNcorrected
+% P-values. Counting exceedances cannot resolve a P-value below 1/n_perm, and
+% that floor, not the FWE-corrected null, is what forces a permutation test to
+% run many thousands of permutations: the maximum distribution behind the
+% corrected P-values is already handled by the Gamma fit above and converges far
+% sooner. Fitting a Generalised Pareto distribution to the tail of the
+% permutation distribution of each element removes the floor and lets a few
+% hundred permutations resolve P-values of 1e-4 and below. The uncorrected
+% P-values also feed the FDR correction, which is therefore capped by the same
+% floor today. See Winkler et al., Faster permutation inference in brain imaging,
+% NeuroImage 141:502-516, 2016.
+use_pareto_tail_approximation = true;
+
+% Number of tail values kept per element for that fit. The fit never uses more
+% than this, and picks the tail size it does use from below it.
+n_tail = 100;
+
+% Elements that were exceeded at least this often are left to plain counting: the
+% count is then already precise enough (25 exceedances is a relative standard
+% error of 20%) and there is nothing for the fit to add.
+n_exc_min = 25;
+
+% Do not spend more than this (in GB) on the tail buffers. Above it the
+% uncorrected P-values fall back to plain counting.
+tail_memory_limit = 4;
+
+% Number of permutations whose TFCE transform is computed in one go. The TFCE
+% transform dominates the cost of the permutation loop, and permutations are
+% independent of one another, so they are handed to tfceMex_maxtree_batch a block
+% at a time and it works on one permutation per thread. Nothing about the result
+% changes, only the order in which the work is done. The block needs
+% n_elements x block_size doubles twice over, so it should be of the order of the
+% number of cores rather than as large as possible. 0 = one per computational
+% thread, 1 = the old permutation-by-permutation path.
+tfce_block_size = 0;
+
+% convert to z-statistic
+convert_to_z = false;
+
+% Sequential stopping (Besag & Clifford, 1991; the negative binomial method of
+% Winkler et al., 2016). Instead of always running the full number of
+% permutations, keep going until the observed GLOBAL maximum has been exceeded
+% n_exceed_stop times by the permutation maxima, and stop there.
+%
+% What makes this the right thing to watch is that no element in the image rests
+% on fewer exceedances than the global maximum does: an element with a smaller
+% statistic is exceeded at least as often. So once the global maximum has been
+% exceeded n_exceed_stop times, EVERY corrected P-value in the image has been
+% pinned down to a relative standard error of 1/sqrt(n_exceed_stop) or better, and
+% further permutations cannot change any of them by more than that.
+%
+% The economics are exactly right. An image with nothing in it reaches the target
+% almost at once -- its largest value is an ordinary draw from the very
+% distribution it is being compared against, so it is exceeded about every other
+% permutation -- while an image with a real effect never reaches it and runs the
+% full n_perm. The permutations are spent only where they can still change the
+% answer.
+%
+% A floor is needed all the same. The Gamma fit to the maximum distribution and
+% the Pareto fits to the element-wise tails both need a few hundred permutations
+% before they have anything to work with, however quickly the FWE question itself
+% settles, so n_perm_min permutations are always run.
+% Off unless the job asks for it: it changes how many permutations a given
+% analysis runs, and analyses run with a fixed number of permutations are easier
+% to compare with one another. A batch written before this option existed does not
+% carry the field, and is left on the old behaviour.
+use_sequential_stopping = isfield(job,'use_sequential_stopping') && ...
+                          job.use_sequential_stopping > 0;
+
+% How many standard errors clear of alpha the estimate has to be before the loop
+% is allowed to stop. This is what keeps an image whose corrected p-value sits
+% near alpha from being cut short on an estimate too coarse to decide it, and so
+% bounds the risk of the sequential decision differing from the full run's
+% (Gandy, 2009, "Sequential implementation of Monte Carlo tests with uniformly
+% bounded resampling risk").
+n_exceed_stop = 20;
+n_sigma_stop  = 3;
+n_perm_min    = 500;
+
+% save null distribution
+save_null_distribution = true;
+
+% method to deal with nuisance variables
+% 0 - Draper-Stoneman
+% 1 - Freedman-Lane
+% 2 - Smith
+% This is the method that was requested. get_nuisance_method may downgrade it to
+% Draper-Stoneman for a given contrast, so it is resolved again for each contrast
+% and the result must not be carried over to the next one.
+requested_nuisance_method = job.nuisance_method;
+
+% display permuted design matrix (otherwise show t distribution)
+show_permuted_designmatrix = true;
+
+% allow to test permutations without analyzing data
+% test mode is automatically chosen if only a SPM.mat is available
+% without any data
+test_mode = false;
+
+% colors and alpha levels
+col   = [0.25 0 0; 1 0 0; 1 0.75 0];
+alpha = [0.05      0.01   0.001];
+    
+% give same results each time
+if exist('rng','file') == 2
+  rng('default')
+  rng(0)
+else
+  rand('state',0);
+end
+
+% tolerance for comparing real numbers
+tol = 1e-4;
+    
+% indicate if voxel-wise covariates were modeled
+[pt,nm] = fileparts(job.data{1});
+is_vSPM = strcmp(nm,'vSPM');
+
+load(job.data{1});
+cwd = fileparts(job.data{1});
+
+%-Check that model has been estimated
+if ~isfield(SPM, 'xVol')
+  str = { 'This model has not been estimated.';...
+              'Would you like to estimate it now?'};
+  if spm_input(str,1,'bd','yes|no',[1,0],1)
+    cd(cwd)
+    SPM = spm_spm(SPM);
+  else
+    return
+  end
+end
+    
+Ic0 = job.conspec.contrasts;
+
+% if just one contrast is defined use this and skip interactive selection
+if (numel(Ic0) == 1) && ~isfinite(Ic0) && isfield(SPM,'xCon') && (numel(SPM.xCon) == 1)
+  Ic0 = 1;
+end
+
+% check whether contrast are defined
+if (numel(Ic0) == 1)
+  if ~isfinite(Ic0) || ~isfield(SPM,'xCon') || (isfield(SPM,'xCon') && isempty(SPM.xCon))
+    [Ic0,xCon] = spm_conman(SPM,'T&F',Inf,...
+          '  Select contrast(s)...',' ',1);
+    SPM.xCon = xCon;
+  end
+end
+
+% for default SPM.mat results has to be called first
+if isempty(SPM.xCon(Ic0(1)).eidf) && ~is_vSPM
+  fprintf('You have to call results first.\n');
+  cat_spm_results_ui('Setup',SPM);
+  load(job.data{1});
+end
+
+% check that no temporal filter was used
+if isstruct(SPM.xX.K)
+  fprintf('ERROR: No first level analysis with temporal correlations allowed.\n');
+  return
+end
+
+% get some parameters from SPM
+xX     = SPM.xX;
+VY     = SPM.xY.VY;
+n_data = size(xX.X,1);
+
+% sometimes xX.iB and xX.iH are not correct and cannot be used to reliably recognize the design
+xX = correct_xX(xX);
+
+% check whether voxel-wise covariate is defined
+voxel_covariate = 0;
+for i = 1:numel(SPM.xC)
+  if isfield(SPM.xC(i),'P') && ~isempty(SPM.xC(i).P)
+    voxel_covariate = i;
+    fprintf('Voxel-wise covariate found.\n');
+  end
+end
+
+% find exchangeability block labels for longitudinal designs (paired t-test, flexible factorial)
+repeated_anova = ~isempty(xX.iB);
+if repeated_anova
+  % Read the blocks straight from the block partition of the design matrix, where
+  % they are explicit: xX.X(:,xX.iB) is the subject indicator matrix. The previous
+  % version searched xX.I for the value numel(xX.iB) and used the first column that
+  % happened to contain it. That silently picked the wrong factor if the subject
+  % factor was not the first one and an earlier factor had at least as many levels,
+  % and it picked the replication index of a "specify all" factor matrix whenever
+  % that index was not constant.
+  B = xX.X(:,xX.iB) ~= 0;
+
+  % every data point has to belong to exactly one block
+  if any(sum(B,2) ~= 1)
+    fprintf('\nError: The block partition of the design matrix does not assign every data point to exactly one subject.\n\n');
+    return
+  end
+
+  [~, exch_block_labels] = max(B, [], 2);
+  exch_block_labels = exch_block_labels';
+
+  n_tp = sum(B, 1);   % number of data points per block
+
+  if any(n_tp == 0)
+    fprintf('\nError: block %d must be assigned to at least one design row in the blocks file.\n\n', find(n_tp == 0, 1));
+    return
+  end
+
+  % check whether at least two time points are available
+  if any(n_tp == 1)
+    fprintf('\nError: You need at least two time points for a longitudinal design for every subjects.\n\n');
+    return
+  end
+
+  if ~isempty(xX.iC)
+    fprintf('\nWarning: Covariates are not recommended for repeated measures Anova and will not properly work.\n');
+    fprintf('Please remove any covariates from your longitudinal design.\n\n');
+  end
+
+  fprintf('\nPlease note that permutation is only done within subjects for repeated Anova.\n');
+else
+  exch_block_labels = ones(1,n_data);
+end
+
+% An explicitly supplied block structure always wins over the recognized one.
+% This is the escape hatch for designs the recognition cannot handle, and for
+% block structures that are not in the design matrix at all, such as sites or
+% families.
+blocks_supplied = false;
+if isfield(job,'exch_blocks') && ~isempty(job.exch_blocks) && ...
+   ~(iscell(job.exch_blocks) && isempty(job.exch_blocks{1}))
+  exch_block_labels = load_exch_blocks(job.exch_blocks, n_data);
+  if isempty(exch_block_labels)
+    return
+  end
+  blocks_supplied = true;
+end
+
+% report the block structure that will actually be used
+n_tp = accumarray(exch_block_labels(:), 1)';
+has_blocks = numel(n_tp) > 1;
+
+if ~has_blocks
+  fprintf('\nExchangeability blocks: none, all %d data points are freely exchangeable.\n', n_data);
+else
+  if blocks_supplied
+    src = 'supplied';
+  else
+    src = 'recognized from the design';
+  end
+  if all(n_tp == n_tp(1))
+    fprintf('\nExchangeability blocks (%s): %d blocks with %d data points each.\n', src, numel(n_tp), n_tp(1));
+  else
+    fprintf('\nExchangeability blocks (%s): %d blocks with %d to %d data points.\n', src, numel(n_tp), min(n_tp), max(n_tp));
+  end
+  fprintf('Data are only permuted within these blocks.\n');
+end
+
+if ~test_mode
+  % check for meshes
+  if spm_mesh_detect(VY)
+    mesh_detected = true;
+  else
+    mesh_detected = false;
+  end
+  
+  % set E according to type data
+  if job.tbss || mesh_detected
+    E = 1.0; H = 2.0;
+  else
+    E = 0.5; H = 2.0;
+  end
+
+  % check for mask image that should exist for any analysis
+  if exist(fullfile(cwd, 'mask.img'),'file')
+    file_ext = '.img';
+  elseif exist(fullfile(cwd, 'mask.nii'),'file')
+    file_ext = '.nii';
+  elseif exist(fullfile(cwd, 'mask.gii'),'file')
+    file_ext = '.gii';
+  else
+    fprintf('WARNING: No mask file found. Switch to test mode.\n');
+    test_mode = true;
+  end
+
+else
+  % for test_mode
+  mesh_detected = false;
+end
+
+% check whether 3D filters were selected for surfaces meshes or whether CAT12 is installed
+if mesh_detected
+  if ~exist('spm_cat12','file')
+    error('For using surface analysis you need to install CAT12.');
+  end  
+end
+
+if ~test_mode
+  % get mask file
+  if isempty(job.mask)
+    maskname = fullfile(cwd,['mask' file_ext]);
+  else
+    if ~isempty(job.mask{1})
+      maskname = job.mask{1};
+    else    
+      maskname = fullfile(cwd,['mask' file_ext]);
+    end
+  end
+  
+  % load mask
+  try
+    Vmask = spm_data_hdr_read(maskname);
+  catch
+    if mesh_detected
+      maskname = spm_select(1,'mesh','select surface mask');
+    else
+      maskname = spm_select(1,'image','select mask image');
+    end
+    Vmask = spm_data_hdr_read(maskname);
+  end
+    
+  % if first image was not found you have to select all files again
+  if ~exist(VY(1).fname,'file')
+  
+    fprintf('Data not found. Please select data in the order defined in the design matrix.\n');
+    n = size(SPM.xY.VY,1);
+    if mesh_detected
+      P = spm_select(n,'mesh','select surfaces');
+    else
+      P = spm_select(n,'image','select images');
+    end
+    
+    VY = spm_data_hdr_read(P);
+    
+    %-Apply gSF to memory-mapped scalefactors to implement scaling
+    %--------------------------------------------------------------------------
+    for i = 1:n
+      VY(i).pinfo(1:2,:) = VY(i).pinfo(1:2,:)*SPM.xGX.gSF(i);
+      if mesh_detected
+        if isfield(VY(i).private.private.data{1}.data,'scl_slope')
+          VY(i).private.private.data{1}.data.scl_slope = ...
+              VY(i).private.private.data{1}.data.scl_slope * SPM.xGX.gSF(i);
+          VY(i).private.private.data{1}.data.scl_inter = ...
+              VY(i).private.private.data{1}.data.scl_inter * SPM.xGX.gSF(i);
+        end
+      else
+        VY(i).private.dat.scl_slope = ...
+            VY(i).private.dat.scl_slope * SPM.xGX.gSF(i);
+        VY(i).private.dat.scl_inter = ...
+            VY(i).private.dat.scl_inter * SPM.xGX.gSF(i);
+      end
+    end
+    
+    SPM.xY.VY = VY;
+      
+    % update SPM
+    if size(SPM.xY.VY,1)==n
+      save(job.data{1},'SPM','-v7.3');
+    else
+      fprintf('ERROR: Number of files is not correct\n');
+      return
+    end
+  end
+        
+  if voxel_covariate
+    % if first image of voxel-wise covariate was not found you have to select all files again
+    if ~exist(SPM.xC(voxel_covariate).VC(1).fname,'file')
+  
+      fprintf('Covariate data not found. Please select covariate data in the order defined in the design matrix.\n');
+      n = numel(SPM.xC(voxel_covariate).P);
+      if mesh_detected
+        P = spm_select(n,'mesh','select surfaces');
+      else
+        P = spm_select(n,'image','select images');
+      end
+      SPM.xC(voxel_covariate).P = cellstr(P);
+      
+      if size(P,1)==n
+        save(job.data{1},'SPM','-v7.3');
+      else
+        fprintf('ERROR: Number of files is not correct\n');
+        return
+      end
+    end
+    
+    VC = spm_data_hdr_read(char(SPM.xC(voxel_covariate).P));
+    n = numel(VC);
+    
+    %-Apply gSF to memory-mapped scalefactors to implement scaling for
+    % voxel-wise covariate
+    %--------------------------------------------------------------------------
+    if isfield(SPM.xC(voxel_covariate),'gSF')
+      for i = 1:n
+        VC(i).pinfo(1:2,:) = VC(i).pinfo(1:2,:)*SPM.xC(voxel_covariate).gSF(i);
+        if mesh_detected
+          if isfield(VC(i).private.private.data{1}.data,'scl_slope')
+            VC(i).private.private.data{1}.data.scl_slope = ...
+                VC(i).private.private.data{1}.data.scl_slope * SPM.xC(voxel_covariate).gSF(i);
+            VC(i).private.private.data{1}.data.scl_inter = ...
+                VC(i).private.private.data{1}.data.scl_inter * SPM.xC(voxel_covariate).gSF(i);
+          end
+        else
+          VC(i).private.dat.scl_slope = ...
+              VC(i).private.dat.scl_slope * SPM.xC(voxel_covariate).gSF(i);
+          VC(i).private.dat.scl_inter = ...
+              VC(i).private.dat.scl_inter * SPM.xC(voxel_covariate).gSF(i);
+        end
+      end
+    end
+    SPM.xC(voxel_covariate).VC = VC;
+  end
+
+  % check whether mask images fits to the data
+  if mesh_detected, dim_index = 1; else dim_index=1:3; end
+  if geometry_mismatch(Vmask, VY(1), dim_index)
+    error('Mask must have the same dimensions and orientation as the data.');
+  end
+  
+  if voxel_covariate
+    do_resample = false;
+    if geometry_mismatch(Vmask, VC(1), dim_index)
+      fprintf('Covariate data has different dimensions and orientation as the other data. Thus, your covariate data will be resampled.\n');
+      fprintf('Please check that your covariate data are co-registered to your other data!\n');
+      do_resample = true;
+    end
+  end
+
+  % read mask and data
+  mask = spm_data_read(Vmask);
+  
+  ind_mask = find(mask>0);
+  n = numel(VY);
+  
+  if ~isempty(ind_mask)
+    Y = zeros([length(ind_mask) n],'single');
+    if voxel_covariate
+      C = zeros([length(ind_mask) n],'single');
+      meanC = zeros(length(ind_mask),1,'single');
+    else
+      C = [];
+    end
+    
+    % load data
+    fprintf('Load data ')
+    for i=1:n
+      fprintf('.')
+      tmp = spm_data_read(VY(i));
+      Y(:,i) = tmp(ind_mask);
+      if voxel_covariate
+        
+        % we need to resample voxel-wise covariate
+        if do_resample
+          tmp = zeros(Vmask.dim);
+          for z=1:Vmask.dim(3)
+            M = spm_matrix([0 0 z]);
+            M1  = Vmask(1).mat\VC(i).mat\M;
+            tmp(:,:,z) = spm_slice_vol(VC(i),M1, Vmask.dim(1:2),[1 0]);
+          end  
+        else
+          tmp = spm_data_read(VC(i));
+        end
+        
+        tmp = tmp(ind_mask);
+        C(:,i) = tmp;
+        meanC = meanC + tmp;
+      end
+    end
+    fprintf('\n')
+    clear tmp;
+  
+    % whitening matrix
+    W = single(full(xX.W));
+    Y = Y*W;
+
+    % mean correct voxel-wise covariate
+    if voxel_covariate
+      meanC = meanC/n;
+      for i=1:n
+        C(:,i) = C(:,i) - meanC;
+      end
+      C = C*W;
+    end
+
+  else
+    error('Empty mask.');
+  end
+  
+  t0 = zeros(Vmask.dim);
+  t  = zeros(Vmask.dim);
+  
+end % if ~test_mode
+
+% if just one contrast is defined, use this contrast and skip interactive selection
+if isfield(SPM,'xCon') && numel(SPM.xCon) == 1 && ~isfinite(Ic0)
+  Ic0 = 1;
+end
+
+% interactively select contrast(s) if necessary
+if numel(Ic0)==1 && ~isfinite(Ic0) && numel(SPM.xCon) > 1
+  [Ic0,xCon] = spm_conman(SPM,'T&F',Inf,...
+    '  Select contrast(s)...',' ',1);
+  SPM.xCon = xCon;
+end
+
+% go through all contrasts
+for con = 1:length(Ic0)
+    
+  Ic = Ic0(con);
+  xCon = SPM.xCon(Ic);
+  
+  n_perm = job.conspec.n_perm(1);
+  if numel(job.conspec.n_perm) > 1
+    n_perm_break = job.conspec.n_perm(2);
+  end
+      
+  if length(Ic) > 1
+    fprintf('ERROR: No conjunction allowed.\n');
+    return
+  end
+  
+  fprintf('Use contrast #%d of %s\n',Ic,job.data{1})
+
+  % get contrast, exchangeability blocks and the design they imply
+  [ok, c0, F_contrast_multiple_rows, ind_X, exch_blocks, n_exch_blocks, ...
+   is_eoi, n_cond, use_half_permutations, ind_exch_blocks] = ...
+      get_exchangeability_blocks(xCon, xX, repeated_anova);
+  if ~ok
+    return
+  end
+  xCon.ind_X = ind_X;
+
+  if blocks_supplied
+    % A one-sample t-test is permuted by flipping the sign of each data point
+    % independently, so a block structure has no effect on it.
+    if n_cond == 1
+      fprintf('\nWarning: The supplied exchangeability blocks are ignored for a one-sample t-test, which is permuted by sign-flipping.\n');
+    end
+
+    % Using half of the permutations relies on the mirrored permutation being
+    % available as well, which a supplied block structure need not allow.
+    if use_half_permutations
+      fprintf('\nNote: Using only half of the permutations is disabled because exchangeability blocks were supplied.\n');
+      use_half_permutations = 0;
+    end
+  end
+
+  fprintf('\n');
+  
+  % recognize the design and derive the group labels to permute
+  [label, interaction_design, ind_exch_blocks] = get_design_labels(n_cond, ...
+      n_data, xX, c0, exch_blocks, n_exch_blocks, ind_exch_blocks, is_eoi, ...
+      F_contrast_multiple_rows, repeated_anova);
+
+  fprintf('\n')
+
+  % get index for label values > 0
+  ind_label  = find(label > 0);
+  
+  n_data_with_contrast = length(ind_label);
+  
+  % estimate # of permutations
+  % Anova/correlation: n_perm = (n1+n2+...+nk)!/(n1!*n2!*...*nk!)
+  if n_cond ~=1  % Anova/correlation
+    n_perm_full = factorial(n_data_with_contrast);
+    single_subject = 0;
+    
+    for i=1:n_cond
+      % check whether only a single subject is in one group
+      if length(find(label == i)) == 1
+        single_subject = 1;
+      end
+      n_perm_full = n_perm_full/factorial(length(find(label == i)));
+    end
+    
+    if isnan(n_perm_full)
+      % correct number of permutations for large samples when factorial is not working
+      if (n_cond == 2) && (single_subject == 1)
+        n_perm_full = n_data_with_contrast;
+      else
+        n_perm_full = realmax;
+      end
+    end
+
+    % find where data are defined for that contrast
+    if ~isempty(find(xX.iH == ind_X(1), 1))
+      % first checking whether contrasts are defined for iH
+      ind_data_defined = find(any(xX.X(:,xX.iH(ind_X)),2));
+    else
+      ind_data_defined = find(any(xX.X(:,ind_X),2));
+    end
+    
+    % correct ind_label and n_data_with_contrast using ind_data_defined
+    ind_label  = ind_data_defined';
+    n_data_with_contrast = length(ind_label);
+    
+    % and restrict exchangeability block labels to those rows
+    exch_block_labels_data_defined = exch_block_labels(ind_data_defined);
+
+    % Repated Anova: n_perm = n_cond1!*n_cond2!*...*n_condk!
+    % for a full model where each condition is defined for all subjects the easier
+    % estimation is: n_perm = (n_cond!)^n_subj
+    % check that no regression analysis inside repeated anova is used
+    % permutations are restricted to the blocks, so the number of possible
+    % permutations is the product over the blocks, not the free count above.
+    % This is keyed on the blocks themselves rather than on repeated_anova, so
+    % that it also holds for an explicitly supplied block structure.
+    if has_blocks && n_cond~=0
+      n_subj = max(exch_block_labels_data_defined);
+      n_perm_full = 1;
+      for k=1:n_subj
+        n_cond_subj = length(find(exch_block_labels_data_defined == k));
+        n_perm_full = n_perm_full*factorial(n_cond_subj);
+      end
+    else
+      n_perm_full = round(n_perm_full);
+    end
+    
+  else  % one-sample t-test: n_perm = 2^n
+    n_perm_full = 2^n_data_with_contrast;
+    exch_block_labels_data_defined = exch_block_labels;
+    ind_data_defined = ind_label;
+  end
+
+  % sometimes for F-tests with multiple independent rows the design cannot be fully recognized
+  % and # of permutations is wrong
+  if n_perm_full == 1 && F_contrast_multiple_rows
+    fprintf('ERROR: This F-contrast and type of design with multiple independent rows is not yet supported.\n');
+    return
+  end
+  
+  if n_perm_full < n_perm
+    fprintf('Warning: Maximum number of possible permutations is lower than defined number of permutations: %d\n',n_perm_full);
+  end
+  
+  n_perm = min([n_perm n_perm_full]);
+
+  fprintf('Number of permutations: %d\n',n_perm);
+  
+  if use_half_permutations
+    fprintf('Equal sample sizes: Use half the number of permutations.\n');
+  end
+  
+  fprintf('Exchangeability block/variable: ');
+  fprintf('%d ',unique(cell2mat(ind_exch_blocks)));
+  fprintf('\n');
+  fprintf('# of conditions: %d\n',n_cond);
+           
+  % partition the design into effects of interest and nuisance, and settle on
+  % the method used to deal with the nuisance variables
+  [Rz, nuisance_method, str_permutation_method] = get_nuisance_method(xX, ...
+      ind_X, interaction_design, requested_nuisance_method, repeated_anova);
+
+  % name of contrast
+  c_name0 = deblank(xCon.name);
+
+  if test_mode
+    c_name = '';
+  else
+    c_name = sprintf('%s (E=%1.1f H=%1.1f %s) ',c_name0, E, H, str_permutation_method);
+  end
+
+  if ~test_mode
+            
+    % compute unpermuted t/F-map
+    if voxel_covariate
+
+      % check which pinv-method is faster and use that one for all permutations   
+      X = xX.W*xX.X;
+  
+      tstart1 = tic;
+      for i=1:20, pX = pinv(X); end
+      telapsed1 = toc(tstart1);
+
+      tstart2 = tic;
+      for i=1:20, pX = pinv2(X); end
+      telapsed2 = toc(tstart2);
+
+      if 1.1*telapsed2 < telapsed1
+        pinv_method = 2;
+        fprintf('Use faster pinv2 function\n');
+      else
+        pinv_method = 1;
+      end
+      
+      [t0, df2] = calc_GLM_voxelwise(Y,xX,SPM.xC(voxel_covariate),xCon,ind_mask,VY(1).dim,C,[],ind_X,pinv_method);
+    else
+      [t0, df2] = calc_GLM(Y,xX,xCon,ind_mask,VY(1).dim);
+    end
+
+    % numerator df of the F-statistic is the RANK of the contrast, not its number
+    % of columns. These differ for rank-deficient F-contrasts, and calc_GLM uses
+    % the rank (xCon.eidf) as well, so Pt would otherwise be evaluated against
+    % the wrong F distribution.
+    if strcmp(xCon.STAT,'T')
+      df1 = 1;
+    else
+      df1 = xCon.eidf;
+    end
+
+
+    % transform to z statistic
+    if convert_to_z
+      % use faster z-transformation of SPM for T-statistics
+      if strcmp(xCon.STAT,'T')
+        t0 = spm_t2z(t0,df2);
+      else
+        t0 = palm_gtoz(t0,df1,df2);
+      end
+    end
+    
+    mask_0   = (t0 == 0);
+    mask_1   = (t0 ~= 0);
+    mask_P   = (t0 > 0);
+    mask_N   = (t0 < 0);
+    mask_NaN = (mask == 0);
+    found_P  = sum(mask_P(:)) > 0;
+    found_N  = sum(mask_N(:)) > 0;
+      
+    % remove all NaN and Inf's
+    t0(isinf(t0) | isnan(t0)) = 0;
+  
+    % sometimes z-transformation produces neg. values even for F-statistics
+    if strcmp(xCon.STAT,'F')
+      t0(t0 < 0) = 0;
+    end
+  
+    % get parametric p-values for comparison
+    tname = sprintf('spm%s_%04d',xCon.STAT,Ic);
+    tname = fullfile(cwd,[tname file_ext]);
+
+    if ~exist(tname,'file') && ~voxel_covariate
+      spm_contrasts(SPM,Ic);
+    end
+
+    if ~voxel_covariate
+      Z0 = spm_data_read(tname);
+
+      Pt = zeros(size(Z0));
+      if strcmp(xCon.STAT,'T')
+        if found_P
+          Pt(mask_P) = 1-spm_Tcdf(Z0(mask_P),df2);
+        else
+          Pt(mask_N) = spm_Tcdf(Z0(mask_N),df2)-1;
+        end
+      else
+        if found_P
+          Pt(mask_P) = 1-spm_Fcdf(Z0(mask_P),[df1, df2]);
+        else
+          Pt(mask_N) = spm_Fcdf(Z0(mask_N),[df1, df2])-1;
+        end
+      end
+          
+      % Check correlation between parametric and non-parametric T/F-values.
+      % Low correlation points to issues with image mask and we have to use a
+      cc = corrcoef(Z0(:),t0(:));
+      mask_shared = Z0 ~= 0;
+
+      % Remember that the parametric and the non-parametric statistic already
+      % disagree. Pt is derived from Z0, so this discrepancy propagates into the
+      % comparison of parametric and permutation p-values later on and must not
+      % be mistaken there for a problem of the design.
+      cc_stat = cc(1,2);
+      stat_mismatch = cc_stat < 0.85;
+
+      if stat_mismatch && isempty(job.mask)
+        % check whether mask size differes and create a shared mask
+        if sum(Z0(:) ~= 0) ~= sum(t0(:) ~= 0)
+          fprintf('\nWARNING: Large discrepancy between parametric and non-parametric statistic found (cc=%g) which either points to different image masks or to missing absolute threshold for VBM analysis.\n',cc(1,2));
+          mask_shared = Z0 ~= 0 & t0 ~=0;
+        else
+          fprintf('\nWARNING: Large discrepancy between parametric and non-parametric statistic found (cc=%g) which is likely due to creating parametric statistics in fMRI mode, which slightly handles noise differently.\n',cc(1,2));
+        end
+      end
+
+    else
+      mask_shared = ones(size(t0));
+      cc_stat = NaN;
+      stat_mismatch = false;
+    end
+
+    % Surface faces are passed to tfceMex_maxtree to select the neighbourhood:
+    % empty means volume data with 26-connectivity, otherwise the mesh adjacency
+    % built from these faces is used. Shared by the unpermuted map and the loop.
+    faces = [];
+
+    % calculate tfce of unpermuted t-map
+    if mesh_detected
+      if ~isa(SPM.xVol.G,'gifti')
+        % check whether path is correct and file exist
+        if ~exist(SPM.xVol.G,'file')
+          [pathG,nameG,extG] = spm_fileparts(SPM.xVol.G);
+          % use new path
+          if ~isempty(strfind(pathG,'_32k'))
+            SPM.xVol.G = fullfile(fileparts(which('cat12')),'templates_surfaces_32k',[nameG extG]);
+          else
+            SPM.xVol.G = fullfile(fileparts(which('cat12')),'templates_surfaces',[nameG extG]);
+          end
+        end
+        SPM.xVol.G = gifti(SPM.xVol.G);
+      end
+      faces = SPM.xVol.G.faces;
+      tfce0 = tfceMex_maxtree(t0, E, H, 1, faces);
+    else
+      % only estimate neg. tfce values for non-positive t-values
+      tfce0 = tfceMex_maxtree(t0, E, H, found_N, faces);
+    end
+
+    % prepare output files
+    Vt = VY(1);
+    Vt.dt(1)    = 16;
+    Vt.pinfo(1) = 1;
+
+    %---------------------------------------------------------------
+    % save unpermuted t map
+    %---------------------------------------------------------------
+    name = sprintf('%s_%04d',xCon.STAT,Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('%s %04d %s',xCon.STAT,Ic, str_permutation_method);
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,t0);
+  
+    %---------------------------------------------------------------
+    % save unpermuted TFCE map
+    %---------------------------------------------------------------
+    name = sprintf('TFCE_%04d',Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('TFCE %04d %s',Ic, str_permutation_method);
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,tfce0);
+  
+    % get largest tfce
+    tfce0_max = max(tfce0(:));
+    t0_max    = max(t0(:));
+    tfce0_min = min(tfce0(:));
+    t0_min    = min(t0(:));
+        
+    % prepare countings
+    tperm        = zeros(size(t));
+    tfceperm     = zeros(size(t));
+    t_min        = [];
+    t_max        = [];
+    t_max_th     = [];
+    tfce_min     = [];
+    tfce_max     = [];
+    tfce_max_th  = [];
+  
+  end % test_mode
+
+  % general initialization
+  try % use try commands to allow batch mode without graphical output
+    Fgraph = spm_figure('GetWin','Graphics');
+    spm_figure('Clear',Fgraph);
+    figure(Fgraph)
+  
+    h = axes('position',[0.45 0.95 0.1 0.05],'Units','normalized','Parent',...
+      Fgraph,'Visible','off');
+      
+    text(0.5,0.6,c_name,...
+      'FontSize',spm('FontSize',10),...
+      'FontWeight','Bold',...
+      'HorizontalAlignment','Center',...
+      'VerticalAlignment','middle')
+  
+    text(0.5,0.25,spm_str_manip(spm_fileparts(job.data{1}),'a80'),...
+      'FontSize',spm('FontSize',8),...
+      'HorizontalAlignment','Center',...
+      'VerticalAlignment','middle')
+  end
+  
+  % check that label has correct dimension
+  sz = size(label);
+  if sz(1)>sz(2)
+    label = label';
+  end
+    
+  stopStatus = false;
+
+  % Regression design found where contrast is defined for covariate?
+  if ~isempty(xX.iC) && all(ismember(ind_X,SPM.xX.iC))
+    ind_label_gt0 = find(label(ind_data_defined) > 0);
+  else
+    ind_label_gt0 = find(label > 0);
+  end
+
+  unique_labels = unique(label(ind_label_gt0));
+  n_unique_labels = length(unique_labels);
+
+  % pre-generate the whole sequence of permutation labels. The draw only depends
+  % on the labels drawn before it and never on any statistic, so it can be done
+  % up front. This keeps the permutation sequence reproducible independently of
+  % the loop and is the prerequisite for computing permutations in parallel.
+  [perm_labels, n_perm] = get_permutation_labels(n_perm, use_half_permutations, ...
+      n_cond, n_data_with_contrast, ind_label, label, ...
+      exch_block_labels_data_defined, ind_label_gt0, unique_labels, n_unique_labels);
+
+  % verify the permutations before using them: data may only be exchanged inside
+  % its own exchangeability block. A wrong block structure invalidates the whole
+  % test, and it cannot be reliably diagnosed afterwards from the results.
+  check_permutation_labels(perm_labels, n_cond, ind_label, exch_block_labels, ...
+      exch_block_labels_data_defined);
+
+  % precompute the permutation-invariant parts of the GLM. This is what allows the
+  % permuted statistic to be obtained from the n_vox x rank(X) matrix Beta alone,
+  % without ever forming the permuted data matrix or the residual matrix. Returns
+  % empty if the shortcut would not reproduce the same statistic, in which case
+  % the loop below falls back to calc_GLM.
+  pre_GLM = [];
+  if ~test_mode && ~voxel_covariate
+    Pset0 = make_Pset(perm_labels(1,:), n_cond, n_data, n_data_with_contrast, ind_label);
+    Pset1 = make_Pset(perm_labels(min(2,size(perm_labels,1)),:), n_cond, n_data, ...
+        n_data_with_contrast, ind_label);
+    pre_GLM = prepare_GLM_fast(Y, xX, Rz, nuisance_method, Pset0, Pset1);
+    if isempty(pre_GLM)
+      fprintf('Note: Using the unaccelerated GLM for the permutations.\n');
+    end
+  end
+
+  % Keep the largest n_tail permuted statistics of every element, so that a
+  % Generalised Pareto distribution can be fitted to the tail afterwards and the
+  % uncorrected P-values resolved below the 1/n_perm floor of plain counting.
+  % Only the elements that carry a statistic are tracked, and only the tail of
+  % the side the observed statistic is on: sgn turns both sides into an upper
+  % tail, so one buffer per map is enough.
+  tail_tfce = [];
+  tail_t    = [];
+  ind_stat  = [];
+  sgn       = [];
+
+  if use_pareto_tail_approximation && ~test_mode
+    ind_stat = find(mask_1);
+    sgn      = single(sign(t0(ind_stat)))';
+
+    % the fit can never use more values than there are permutations to draw from
+    n_draws_max = n_perm/(1 + use_half_permutations);
+    K = min(n_tail, floor(n_draws_max) - 1);
+
+    need_gb = 2*K*numel(ind_stat)*4/1e9;
+    if K < 30
+      fprintf('Note: Too few permutations for the Pareto tail approximation, using plain counting.\n');
+      ind_stat = [];
+    elseif need_gb > tail_memory_limit
+      fprintf('Note: The Pareto tail approximation would need %.1f GB, above the limit of %.1f GB. Using plain counting.\n', ...
+              need_gb, tail_memory_limit);
+      ind_stat = [];
+    else
+      tail_tfce = tail_init(K, numel(ind_stat));
+      tail_t    = tail_init(K, numel(ind_stat));
+    end
+  end
+
+  % Permutations are worked through a block at a time so that their TFCE
+  % transforms can be done in parallel, one permutation per thread. These hold the
+  % statistics and the TFCE maps of the block currently being consumed.
+  n_draws_max = size(perm_labels,1);
+
+  n_threads = tfce_block_size;
+  if n_threads <= 0
+    n_threads = maxNumCompThreads;
+  end
+  n_threads = max(1, min(n_threads, n_draws_max));
+
+  % the batched transform needs to be told the neighbourhood explicitly, since it
+  % is handed a matrix of maps rather than one map in its own shape
+  tfce_geom = [];
+  if ~test_mode
+    if mesh_detected
+      tfce_geom = faces;
+    else
+      tfce_geom = VY(1).dim;
+    end
+  end
+
+  blk_t    = [];
+  blk_tfce = zeros(0,0);
+  blk_pos  = 1;
+
+  if ~test_mode, tfce_progress('Init',n_perm,'Calculating','Permutations'); end
+
+  % update interval for progress bar
+  progress_step = max([1 round(n_perm/100)]);
+
+  perm = 1;
+  perm_idx = 0;
+  check_validity = false;
+  while perm<=n_perm
+
+    % pick the pre-generated subject vector for this permutation
+    perm_idx = perm_idx + 1;
+    if n_cond == 1 % one-sample t-test
+      rand_label = perm_labels(perm_idx,:);
+    else % correlation or Anova
+      rand_order_sorted = perm_labels(perm_idx,:);
+    end
+
+    % create permutation set
+    Pset = make_Pset(perm_labels(perm_idx,:), n_cond, n_data, n_data_with_contrast, ind_label);
+
+    % add Stop button after 20 iterations
+    try % use try commands to allow batch mode without graphical output
+      if perm==21
+        hStopButton = uicontrol(Fgraph,...
+          'position',[10 10 70 20],...
+          'style','toggle',...
+          'string','Stop',...
+          'backgroundcolor',[1 .5 .5]); % light-red
+      end
+    
+      if perm>=21
+        stopStatus = get(hStopButton,'value');
+      end
+    
+      % check Stop status
+      if (stopStatus == true)
+        fprintf('Stopped after %d iterations.\n',perm);
+        break; % stop the permutation loop
+      end
+    end
+      
+    % change design matrix according to permutation order
+    % only permute columns, where contrast is defined
+    % the design that is actually fitted is built inside the block below, one per
+    % permutation. This one only feeds the display.
+    Xperm_debug = xX.X;
+    Xperm_debug(:,ind_X) = Pset*Xperm_debug(:,ind_X);
+
+    % correct interaction designs
+    % # exch_blocks >1 & # cond == 0 & differential contrast
+    if n_exch_blocks >= 2 && n_cond==0 && ~all(exch_blocks(:))
+      Xperm_debug2 = Xperm_debug;
+      Xperm_debug2(:,ind_X) = 0;
+      for j=1:n_exch_blocks
+        ind_Xj = find(xX.X(:,ind_X(j)));
+        Xperm_debug2(ind_Xj,ind_X(j)) = sum(Xperm_debug(ind_Xj,ind_X),2);
+      end
+      Xperm_debug = Xperm_debug2;
+    end
+
+    if show_permuted_designmatrix
+      % scale covariates and nuisance variables to a range 0.8..1
+      % to properly display these variables with indicated colors
+      if ~isempty(xX.iC)
+        val = Xperm_debug(:,xX.iC);
+        mn = repmat(min(val),length(val),1); mx = repmat(max(val),length(val),1);
+        val = 0.8 + 0.2*(val-mn)./(mx-mn);
+        Xperm_debug(:,xX.iC) = val;
+      end
+      if ~isempty(xX.iG)
+        val = Xperm_debug(:,xX.iG);
+        mn = repmat(min(val),length(val),1); mx = repmat(max(val),length(val),1);
+        val = 0.8 + 0.2*(val-mn)./(mx-mn);
+        Xperm_debug(:,xX.iG) = val;
+      end
+      if ~isempty(xX.iH) && n_cond==1 % one-sample t-test
+        val = Xperm_debug(:,xX.iH);
+        mn = repmat(min(val),length(val),1); mx = repmat(max(val),length(val),1);
+        val = 0.8 + 0.2*(val-mn)./(mx-mn);
+        Xperm_debug(:,xX.iH) = val;
+      end
+      
+      % use different colors for indicated columns
+      Xperm_debug(:,xX.iH) = 16*Xperm_debug(:,xX.iH);
+      Xperm_debug(:,xX.iC) = 24*Xperm_debug(:,xX.iC);
+      Xperm_debug(:,xX.iB) = 32*Xperm_debug(:,xX.iB);
+      Xperm_debug(:,xX.iG) = 48*Xperm_debug(:,xX.iG);
+
+      if n_cond==1 % one-sample t-test
+        for j=1:n_data_with_contrast
+          if rand_label(j) > 0
+            Xperm_debug(ind_label(j),ind_X) = 60*rand_label(j)*Xperm_debug(ind_label(j),ind_X);
+          else
+            Xperm_debug(ind_label(j),ind_X) = 56*rand_label(j)*Xperm_debug(ind_label(j),ind_X);
+          end
+        end
+      else % correlation or Anova
+        % scale exchangeability blocks also to values 0.8..1
+        val = Xperm_debug(:,ind_X);
+        ind0 = (val==0);
+        mn = repmat(min(val),length(val),1); mx = repmat(max(val),length(val),1);
+        val = 0.8 + 0.2*(val-mn)./(mx-mn);
+      
+        % rescue zero entries
+        val(ind0) = 0;
+      
+        Xperm_debug(:,ind_X) = 60*val;
+      end
+
+    end
+          
+    show_plot = 0;
+    if use_half_permutations
+      if ~rem(perm,progress_step) || ~rem(perm+1,progress_step)
+        show_plot = 1;
+      end
+    else
+      if ~rem(perm,progress_step)
+        show_plot = 1;
+      end
+    end
+
+    % display permuted design matrix
+    try
+      if show_permuted_designmatrix && show_plot
+        figure(Fgraph);
+        subplot(2,2,3);
+        image(Xperm_debug); axis off
+        title('Permuted design matrix','FontWeight','bold');
+      
+        % use different colormap for permuted design matrix
+        cmap = jet(64);
+      
+        % zero values should be always black
+        cmap(1,:) = [0 0 0];
+        colormap(cmap)
+      
+        % show legend only once
+        if perm <= progress_step
+          subplot(2,2,4); axis off
+        
+          % color-coded legend
+          y = 1.0;
+          text(-0.2,y, 'Columns of design matrix: ', 'Color',cmap(1, :),'FontWeight','Bold','FontSize',10); y = y - 0.10;
+          text(-0.2,y,['Exch. block: ' num2str_short(unique(cell2mat(ind_exch_blocks))')], 'Color',cmap(60,:),'FontWeight','Bold','FontSize',10); y = y - 0.05;
+          if ~isempty(xX.iH)
+            text(-0.2,y, ['iH - Indicator variable: ' num2str_short(xX.iH)], 'Color',cmap(16,:),'FontWeight','Bold','FontSize',10);
+            y = y - 0.05; 
+          end
+          if ~isempty(xX.iC)
+            text(-0.2,y, ['iC - Covariate: ' num2str_short(xX.iC)], 'Color',cmap(24,:),'FontWeight','Bold','FontSize',10);
+            y = y - 0.05;
+          end
+          if ~isempty(xX.iB)
+            text(-0.2,y, ['iB - Block variable: ' num2str_short(xX.iB)], 'Color',cmap(32,:),'FontWeight','Bold','FontSize',10);
+            y = y - 0.05;
+          end
+          if ~isempty(xX.iG)
+            text(-0.2,y, ['iG - Nuisance variable: ' num2str_short(xX.iG)], 'Color',cmap(48,:),'FontWeight','Bold','FontSize',10);
+            y = y - 0.05;
+          end
+        end
+      end
+    end
+    
+    if ~test_mode
+      % calculate permuted t-map
+      if perm == 1
+        t    = t0;
+        tfce = tfce0;
+        % prepare null distribution
+        if save_null_distribution
+          null_distribution = zeros(size(t));
+        end
+      else
+        % Work through the permutations a block at a time. The statistic of every
+        % permutation in the block is computed first, and their TFCE transforms
+        % are then done in a single call that runs one permutation per thread.
+        % TFCE dominates the cost of this loop and the permutations are
+        % independent of one another, so that is where the parallelism belongs.
+        % Nothing about the result changes: the permutations are consumed below in
+        % exactly the order they would have been, only the order of the work
+        % differs. A block size of 1 reproduces the permutation-by-permutation
+        % path exactly.
+        if blk_pos > size(blk_tfce,2)
+          n_blk = max(1, min(n_threads, n_draws_max - perm_idx + 1));
+          blk_t = zeros(numel(t0), n_blk);
+
+          for b = 1:n_blk
+            Pset_b  = make_Pset(perm_labels(perm_idx+b-1,:), n_cond, n_data, ...
+                                n_data_with_contrast, ind_label);
+            xXperm  = xX;
+            xXperm.X = permuted_design(xX.X, Pset_b, Rz, ind_X, nuisance_method, ...
+                                       n_exch_blocks, n_cond, exch_blocks);
+
+            if voxel_covariate
+              tb = calc_GLM_voxelwise(Y,xXperm,SPM.xC(voxel_covariate),xCon,ind_mask,VY(1).dim,C,Pset_b,ind_X,pinv_method);
+            elseif ~isempty(pre_GLM)
+              % accelerated path: the permutation enters through Pset for
+              % Freedman-Lane and through the design for Draper-Stoneman/Smith
+              tb = calc_GLM_fast(Y,pre_GLM,xXperm,xCon,ind_mask,VY(1).dim,Pset_b,nuisance_method);
+            elseif nuisance_method == 1
+              % Freedman-Lane permutation of data
+              tb = calc_GLM(Y*(Pset_b'*Rz),xXperm,xCon,ind_mask,VY(1).dim);
+            else
+              tb = calc_GLM(Y,xXperm,xCon,ind_mask,VY(1).dim);
+            end
+
+            if convert_to_z
+              % use faster z-transformation of SPM for T-statistics
+              if strcmp(xCon.STAT,'T')
+                tb(mask_1) = spm_t2z(tb(mask_1),df2);
+              else
+                tb(mask_1) = palm_gtoz(tb(mask_1),df1,df2);
+              end
+            end
+
+            % update null-distribution
+            if save_null_distribution
+              null_distribution(mask_1) = null_distribution(mask_1) + tb(mask_1);
+            end
+
+            % remove all NaN and Inf's
+            tb(isinf(tb) | isnan(tb)) = 0;
+
+            blk_t(:,b) = tb(:);
+          end
+
+          % only estimate neg. tfce values for non-positive t-values. A map that
+          % has none is unaffected by asking for them, so one flag for the block
+          % gives the same maps as one flag per permutation.
+          calc_neg = mesh_detected || any(blk_t(:) < 0);
+
+          blk_tfce = tfceMex_maxtree_batch(blk_t, E, H, calc_neg, tfce_geom, n_threads);
+          blk_pos  = 1;
+        end
+
+        t    = reshape(blk_t(:,blk_pos),    size(t0));
+        tfce = reshape(blk_tfce(:,blk_pos), size(t0));
+        blk_pos = blk_pos + 1;
+      end
+      
+      mask_stat_P = mask_1;
+      mask_stat_N = mask_1;
+    end % test_mode
+    
+    if use_half_permutations
+      if ~test_mode
+        % maximum statistic
+        t_max    = [t_max    max(t(mask_stat_P))    -min(t(mask_stat_N))];
+        t_min    = [t_min    min(t(mask_stat_N))    -max(t(mask_stat_P))];
+        tfce_max = [tfce_max max(tfce(mask_stat_P)) -min(tfce(mask_stat_N))];
+        tfce_min = [tfce_min min(tfce(mask_stat_N)) -max(tfce(mask_stat_P))];
+        tperm(mask_P)    = tperm(mask_P) + 2*(t(mask_P) >= t0(mask_P));
+        tperm(mask_N)    = tperm(mask_N) - 2*(t(mask_N) <= t0(mask_N));
+        tfceperm(mask_P) = tfceperm(mask_P) + 2*(tfce(mask_P) >= tfce0(mask_P));
+        tfceperm(mask_N) = tfceperm(mask_N) - 2*(tfce(mask_N) <= tfce0(mask_N));
+        
+      end
+    else
+      if ~test_mode
+        % maximum statistic
+        t_max    = [t_max    max(t(mask_stat_P))];
+        t_min    = [t_min    min(t(mask_stat_N))];
+        tfce_max = [tfce_max max(tfce(mask_stat_P))];
+        tfce_min = [tfce_min min(tfce(mask_stat_N))];
+        tperm(mask_P)    = tperm(mask_P) + (t(mask_P) >= t0(mask_P));
+        tperm(mask_N)    = tperm(mask_N) - (t(mask_N) <= t0(mask_N));
+        tfceperm(mask_P) = tfceperm(mask_P) + (tfce(mask_P) >= tfce0(mask_P));
+        tfceperm(mask_N) = tfceperm(mask_N) - (tfce(mask_N) <= tfce0(mask_N));
+
+      end
+    end
+
+    % feed this permutation into the tail buffers. sgn flips the elements with a
+    % negative statistic, so that both sides are an upper tail and the counting
+    % above and the fit afterwards look at the very same draws. The mirrored
+    % permutations of the half-permutation shortcut are deliberately not entered
+    % here: the counting above does not use them element-wise either, it counts
+    % each drawn permutation twice.
+    if ~test_mode && ~isempty(ind_stat)
+      tail_tfce = tail_update(tail_tfce, single(tfce(ind_stat))'.*sgn);
+      tail_t    = tail_update(tail_t,    single(t(ind_stat))'   .*sgn);
+    end
+
+    if ~test_mode
+      % use cummulated sum to find threshold
+      stfce_max = sort(tfce_max);
+      st_max    = sort(t_max);
+  
+      % find corrected thresholds
+      ind_max  = ceil((1-alpha).*length(st_max));
+      t_max_th = [t_max_th; st_max(ind_max)];
+      if use_half_permutations
+        t_max_th = [t_max_th; st_max(ind_max)];
+      end
+      
+      ind_max     = ceil((1-alpha).*length(stfce_max));
+      tfce_max_th = [tfce_max_th; stfce_max(ind_max)];
+      if use_half_permutations
+        tfce_max_th = [tfce_max_th; stfce_max(ind_max)];
+      end
+      
+      % plot thresholds and histograms      
+      try
+        if show_plot
+          figure(Fgraph);
+          axes('position',[0 0 1 0.95],'Parent',Fgraph,'Visible','off');
+          plot_distribution(stfce_max, tfce_max_th, 'tfce', alpha, col, 1, tfce0_max, tfce0_min);
+          if ~show_permuted_designmatrix
+            plot_distribution(st_max, t_max_th, 't-value', alpha, col, 2, t0_max, t0_min);
+          end
+        end
+      end
+    
+      if numel(job.conspec.n_perm) > 1
+        if perm > n_perm_break
+          if isempty(find(tfce0_max > tfce_max_th(50:end,1), 1))
+            fprintf('No FWE-corrected suprathreshold value after %d permutations found\n', n_perm_break);
+            perm = n_perm;
+          end
+        end  
+      end
+      
+      save_results = 1;
+
+      % after 500 permutations or at n_perm compare uncorrected p-values with permutations with parametric
+      % p-values to check wheter something went wrong    
+      % use odd numbers to consider parameter use_half_permutations
+      % skip that check for voxel-wise covariates
+      
+      if ~voxel_covariate && ((perm == 501) || (perm >= n_perm-1)) && ~check_validity && (found_P || found_N)
+        
+        % estimate p-values
+        nPt = tperm/perm;
+    
+        % check correlation between parametric and non-parametric p-values
+        % exclude Pt==0.5 and Pt==1 values that can distort masked analysis values
+        if found_P
+          cc = corrcoef(nPt(mask_P & Pt ~=0.5 & Pt ~=1 & mask_shared),Pt(mask_P & Pt ~=0.5 & Pt ~=1 & mask_shared));
+        else
+          cc = corrcoef(nPt(mask_N & Pt ~=0.5 & Pt ~=1 & mask_shared),Pt(mask_N & Pt ~=0.5 & Pt ~=1 & mask_shared));
+        end
+
+        % check for low correlation between non-parametric and permutation test
+        % skip check for voxel-wise covariate
+        if cc(1,2) < 0.85
+          if stat_mismatch
+            % The parametric and the non-parametric statistic already disagreed
+            % before any permutation was done (see the warning above). Pt is
+            % derived from that parametric statistic, so it is expected that the
+            % p-values disagree here as well. This says nothing about the design.
+            fprintf('\nNote: Parametric and permutation p-values disagree (cc=%g), but the parametric and the non-parametric statistic already disagreed before permutation (cc=%g). This points to a mismatch of the statistics themselves - different image masks, a missing absolute threshold, or parametric statistics created in fMRI mode - and not to a wrongly recognized design. Please resolve that discrepancy first.\n',cc(1,2),cc_stat);
+          elseif nuisance_method > 0
+            % check correlation between parametric and non-parametric statistic ofr Smith or Freedman-Lane correction
+            spm('alert!',sprintf('WARNING: Large discrepancy between parametric and non-parametric statistic found! Please try a different method to deal with nuisance parameters.\n'),'',spm('CmdLine'),0);
+            fprintf('\nWARNING: Large discrepancy between parametric and non-parametric statistic found (cc=%g)! Please try a different method to deal with nuisance parameters.\n',cc(1,2));
+          else
+            spm('alert!',sprintf('WARNING: Large discrepancy between parametric and non-parametric statistic found! Probably your design was not correctly recognized.\n'),'',spm('CmdLine'),0);
+            fprintf('\nWARNING: Large discrepancy between parametric and non-parametric statistic found (cc=%g)! Probably your design was not correctly recognized.\n',cc(1,2));
+          end
+        else
+          fprintf('\nCorrelation between parametric and non-parametric statistic is cc=%g. This rules out a grossly misspecified permutation.\n',cc(1,2));
+        end
+
+        check_validity = true;
+      end
+
+      % Sequential stopping. Count how often the permutation maxima have reached
+      % the observed global maximum. Both tails are watched, and whichever has
+      % accumulated the fewer exceedances decides, since that is the one still
+      % least certain. This sits after the calibration check above on purpose, so
+      % that stopping early can never skip it.
+      %
+      % Unlike the rule this replaced, the results ARE saved. They are not a guess
+      % that the answer would have been null; they are the answer, computed from as
+      % many permutations as it took to be sure of it.
+      if use_sequential_stopping && perm >= n_perm_min
+        n_exceed = Inf;
+        if found_P
+          n_exceed = min(n_exceed, sum(tfce_max >= tfce0_max));
+        end
+        if found_N
+          n_exceed = min(n_exceed, sum(-tfce_min >= -tfce0_min));
+        end
+
+        % How certain are we that even the most extreme element in the image is
+        % NOT significant? Counting exceedances alone is not enough to answer
+        % that. An image whose true corrected p-value sits right at alpha reaches
+        % any fixed number of exceedances quickly, and stopping there would leave
+        % the decision resting on an estimate far too coarse to place it on one
+        % side of alpha or the other -- the truncated run and the full run would
+        % then disagree about half the time, which is exactly the case where the
+        % answer matters most.
+        %
+        % So the rule is not "enough exceedances" but "enough exceedances AND the
+        % estimate is n_sigma_stop standard errors clear of the largest alpha we
+        % are asked about". A decisively null image clears that within the floor;
+        % anything significant, or anywhere near the boundary, never clears it and
+        % runs the full n_perm. This is what bounds the risk of the sequential
+        % decision differing from the one the full run would have made (Gandy,
+        % 2009).
+        m     = numel(tfce_max);
+        p_hat = n_exceed/m;
+        se    = sqrt(p_hat*(1 - p_hat)/m);
+
+        if n_exceed >= n_exceed_stop && (p_hat - n_sigma_stop*se) > max(alpha)
+          fprintf(['\nStopping after %d of %d permutations: the largest value in the image ' ...
+                   'was exceeded %d times, so its corrected p-value is %.3f (+/- %.3f), ' ...
+                   'clear of alpha = %.3f. Nothing in the image can become significant, and ' ...
+                   'no corrected p-value can still move by more than %.0f%%.\n'], ...
+                  perm, n_perm, n_exceed, p_hat, se, max(alpha), 100/sqrt(n_exceed));
+          break; % stop the permutation loop
+        end
+      end
+
+    end % test_mode
+
+
+    if show_plot
+      if ~test_mode, tfce_progress('Set',perm,Fgraph); end
+      drawnow
+    end
+      
+    if use_half_permutations  
+      perm = perm + 2;
+    else
+      perm = perm + 1;
+    end
+  
+  end
+  
+  if ~test_mode, tfce_progress('Clear',Fgraph); end
+  
+  try
+    delete(hStopButton);
+    warning off
+    spm_print;
+  end
+  
+  if ~test_mode && save_results
+    % get correct number of permutations in case that process was stopped
+    n_perm = length(tfce_max);
+
+    % number of permutations that were actually drawn and fed to the element-wise
+    % counting. The half-permutation shortcut enters each of them twice, so this
+    % is half of n_perm there, and the two are the same otherwise.
+    n_draws = perm_idx;
+
+    if use_pareto_tail_approximation && ~isempty(ind_stat)
+      fprintf('Using tail approximation from the Generalised Pareto distribution for uncorrected P-values.\n');
+    end
+  
+    %---------------------------------------------------------------
+    % corrected threshold based on permutation distribution
+    %---------------------------------------------------------------
+  
+    % prepare output files
+    Vt = VY(1);
+    Vt.dt(1)    = 16;
+    Vt.pinfo(1) = 1;
+  
+    % save ascii file with number of permutations
+    name = sprintf('%s_%04d',xCon.STAT,Ic);
+    fid = fopen(fullfile(cwd,[name '.txt']),'w');
+    fprintf(fid,'%d\n',n_perm);
+    fclose(fid);
+  
+    %---------------------------------------------------------------
+    % save uncorrected p-values for TFCE
+    %---------------------------------------------------------------
+    fprintf('Save uncorrected p-values.\n');
+  
+    name = sprintf('TFCE_log_p_%04d',Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('TFCE %04d %s',Ic, str_permutation_method);
+      
+    % estimate p-values
+    nPtfce = tfceperm/n_perm;
+
+    % ... and resolve the ones that plain counting cannot, from the fitted tail
+    % sgn is single, because that is what the tail buffer holds. The P-values are
+    % not: multiplying by it directly would silently round them to single.
+    if ~isempty(ind_stat)
+      nPtfce(ind_stat) = (double(sgn) .* tail_pvalue(tail_tfce, ...
+          single(tfce0(ind_stat))'.*sgn, abs(tfceperm(ind_stat))'*n_draws/n_perm, ...
+          n_draws, n_exc_min))';
+    end
+
+    nPtfcelog10 = zeros(size(tfce0));
+  
+    if found_P
+      nPtfcelog10(mask_P) = -log10(nPtfce(mask_P));
+    end
+    
+    if found_N
+      nPtfce(mask_N) = -nPtfce(mask_N);
+      nPtfcelog10(mask_N) =  log10(nPtfce(mask_N));
+    end
+    
+    nPtfce(mask_0)   = 1;
+    nPtfce(mask_NaN) = NaN;
+    nPtfcelog10(mask_0)   = 0;
+    nPtfcelog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,nPtfcelog10);
+  
+    %---------------------------------------------------------------
+    % save uncorrected p-values for T
+    %---------------------------------------------------------------
+    name = sprintf('%s_log_p_%04d',xCon.STAT,Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('%s %04d %s',xCon.STAT,Ic, str_permutation_method);
+  
+    nPtlog10 = zeros(size(t0));
+  
+    % estimate p-values
+    nPt = tperm/n_perm;
+
+    % ... and resolve the ones that plain counting cannot, from the fitted tail
+    if ~isempty(ind_stat)
+      nPt(ind_stat) = (double(sgn) .* tail_pvalue(tail_t, ...
+          single(t0(ind_stat))'.*sgn, abs(tperm(ind_stat))'*n_draws/n_perm, ...
+          n_draws, n_exc_min))';
+    end
+
+    % the tail buffers are the largest thing this loop allocated
+    tail_tfce = []; tail_t = []; %#ok<NASGU>
+
+    if found_P
+      nPtlog10(mask_P) = -log10(nPt(mask_P));
+    end
+    
+    if found_N
+      nPt(mask_N) = -nPt(mask_N);
+      nPtlog10(mask_N) =  log10(nPt(mask_N));
+    end
+    
+    nPt(mask_0)   = 1;
+    nPt(mask_NaN) = NaN;
+    nPtlog10(mask_0)   = 0;
+    nPtlog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,nPtlog10);
+  
+    %---------------------------------------------------------------
+    % save corrected p-values for TFCE
+    %---------------------------------------------------------------
+    fprintf('Save corrected p-values.\n');
+
+    name = sprintf('TFCE_log_pFWE_%04d',Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('TFCE %04d FWE %s',Ic, str_permutation_method);
+  
+    corrP = ones(size(t));
+  
+    if use_gamma_tail_approximation
+      fprintf('Using tail approximation from the Gamma distribution for corrected P-values.\n');
+      
+      ind_tail = 1:n_perm;
+      
+      if found_P
+        [mu,s2,gamm1] = palm_moments(tfce_max(ind_tail)');
+        corrP(mask_P) = palm_gamma(tfce0(mask_P),mu,s2,gamm1,false,1/n_perm);
+      end
+      
+      if found_N
+        [mu,s2,gamm1] = palm_moments(-tfce_min(ind_tail)');
+        corrP(mask_N) = -palm_gamma(-tfce0(mask_N),mu,s2,gamm1,false,1/n_perm);
+      end
+      
+    else
+
+      if found_P
+        for t2 = tfce_max
+          %-FWE-corrected p is proportion of randomisation greater or
+          % equal to statistic.
+          %-Use a > b -tol rather than a >= b to avoid comparing
+          % two reals for equality.
+          corrP(mask_P) = corrP(mask_P) + (t2 > (tfce0(mask_P)  - tol));
+        end
+      end
+      
+      if found_N
+        for t2 = tfce_min
+          %-FWE-corrected p is proportion of randomisation greater or
+          % equal to statistic.
+          %-Use a > b -tol rather than a >= b to avoid comparing
+          % two reals for equality.
+          corrP(mask_N) = corrP(mask_N) - (t2 < (tfce0(mask_N) + tol));
+        end
+      end
+      
+      corrP = corrP/n_perm;  
+    end
+    corrPlog10 = zeros(size(tfce0));
+  
+    if found_P
+      corrPlog10(mask_P) = -log10(corrP(mask_P));
+    end
+    
+    if found_N
+      corrP(mask_N) = -corrP(mask_N);
+      corrPlog10(mask_N) =  log10(corrP(mask_N));
+    end
+    
+    corrP(mask_0)   = 1;
+    corrP(mask_NaN) = NaN;
+    corrPlog10(mask_0)   = 0;
+    corrPlog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,corrPlog10);
+  
+    %---------------------------------------------------------------
+    % save corrected p-values for T
+    %---------------------------------------------------------------
+    name = sprintf('%s_log_pFWE_%04d',xCon.STAT,Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('%s %04d FWE %s',xCon.STAT,Ic, str_permutation_method);
+  
+    corrP = zeros(size(t));
+  
+    if use_gamma_tail_approximation
+      
+      if found_P
+        [mu,s2,gamm1] = palm_moments(t_max(ind_tail)');
+        corrP(mask_P) = palm_gamma(t0(mask_P),mu,s2,gamm1,false,1/n_perm);
+      end
+      
+      if found_N
+        [mu,s2,gamm1] = palm_moments(-t_min(ind_tail)');
+        corrP(mask_N) = -palm_gamma(-t0(mask_N),mu,s2,gamm1,false,1/n_perm);
+      end
+      
+    else
+      if found_P
+        for t2 = t_max
+          %-FWE-corrected p is proportion of randomisation greater or
+          % equal to statistic.
+          %-Use a > b -tol rather than a >= b to avoid comparing
+          % two reals for equality.
+          corrP(mask_P) = corrP(mask_P) + (t2 > t0(mask_P)  - tol);
+        end
+      end
+      
+      if found_N
+        for t2 = t_min
+          %-FWE-corrected p is proportion of randomisation greater or
+          % equal to statistic.
+          %-Use a > b -tol rather than a >= b to avoid comparing
+          % two reals for equality.
+          corrP(mask_N) = corrP(mask_N) - (t2 < t0(mask_N) + tol);
+        end
+      end
+      
+      corrP = corrP/n_perm;  
+    end
+
+    corrPlog10 = zeros(size(tfce0));
+  
+    if found_P
+      corrP(mask_P) = corrP(mask_P);
+      corrPlog10(mask_P) = -log10(corrP(mask_P));
+    end
+    
+    if found_N
+      corrP(mask_N) = -corrP(mask_N);
+      corrPlog10(mask_N) =  log10(corrP(mask_N));
+    end
+  
+    corrP(mask_0)   = 1;
+    corrP(mask_NaN) = NaN;
+    corrPlog10(mask_0)   = 0;
+    corrPlog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,corrPlog10);
+  
+    %---------------------------------------------------------------
+    % save corrected FDR-values for TFCE
+    %---------------------------------------------------------------
+    fprintf('Save corrected FDR-values.\n');
+  
+    name = sprintf('TFCE_log_pFDR_%04d',Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('TFCE %04d FDR %s',Ic, str_permutation_method);
+  
+    corrPfdr = NaN(size(t));
+    corrPfdrlog10 = zeros(size(tfce0));
+  
+    if found_P
+      [snP_pos,I_pos] = sort(nPtfce(mask_P));
+      if ~isempty(snP_pos)
+        corrPfdr_pos = snpm_P_FDR([],[],'P',[],snP_pos);
+        corrPfdr_pos(I_pos) = corrPfdr_pos;
+        corrPfdr(mask_P) = corrPfdr_pos;
+        corrPfdrlog10(mask_P) = -log10(corrPfdr(mask_P));
+      end
+    end
+  
+    if found_N
+      [snP_neg,I_neg] = sort(nPtfce(mask_N));
+      if ~isempty(snP_neg)
+        corrPfdr_neg = snpm_P_FDR([],[],'P',[],snP_neg);
+        corrPfdr_neg(I_neg) = corrPfdr_neg;
+        corrPfdr(mask_N) = corrPfdr_neg;
+        corrPfdrlog10(mask_N) =  log10(corrPfdr(mask_N));
+      end
+    end
+      
+    corrPfdrlog10(mask_0)   = 0;
+    corrPfdrlog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,corrPfdrlog10);
+  
+    %---------------------------------------------------------------
+    % save corrected FDR-values for T
+    %---------------------------------------------------------------
+    name = sprintf('%s_log_pFDR_%04d',xCon.STAT,Ic);
+    Vt.fname = fullfile(cwd,[name file_ext]);
+    Vt.descrip = sprintf('%s %04d FDR %s',xCon.STAT,Ic, str_permutation_method);
+  
+    corrPfdr = NaN(size(t));
+    corrPfdrlog10 = zeros(size(tfce0));
+  
+    if found_P
+      if ~isempty(snP_pos)
+        [snP_pos,I_pos] = sort(nPt(mask_P));
+        corrPfdr_pos = snpm_P_FDR([],[],'P',[],snP_pos);
+        corrPfdr_pos(I_pos) = corrPfdr_pos;
+        corrPfdr(mask_P) = corrPfdr_pos;
+        corrPfdrlog10(mask_P) = -log10(corrPfdr(mask_P));
+      end
+    end
+  
+    if found_N
+      [snP_neg,I_neg] = sort(nPt(mask_N));
+      if ~isempty(snP_neg)
+        corrPfdr_neg = snpm_P_FDR([],[],'P',[],snP_neg);
+        corrPfdr_neg(I_neg) = corrPfdr_neg;
+        corrPfdr(mask_N) = corrPfdr_neg;
+        corrPfdrlog10(mask_N) =  log10(corrPfdr(mask_N));
+      end
+    end
+  
+    corrPfdrlog10(mask_0)   = 0;
+    corrPfdrlog10(mask_NaN) = NaN;
+  
+    Vt = spm_data_hdr_write(Vt);
+    spm_data_write(Vt,corrPfdrlog10);
+
+    %---------------------------------------------------------------
+    % save null distribution
+    %---------------------------------------------------------------
+    if save_null_distribution
+      fprintf('Save null distribution.\n');
+      null_distribution = null_distribution/sqrt(n_perm - 1);
+      name = sprintf('null%s_%04d',xCon.STAT,Ic);
+      Vt.fname = fullfile(cwd,[name file_ext]);
+      Vt.descrip = sprintf('Null%s %04d %s',xCon.STAT,Ic, str_permutation_method);
+      Vt = spm_data_hdr_write(Vt);
+      spm_data_write(Vt,null_distribution);
+    end
+      
+  end % test_mode
+    
+end
+
+colormap(gray)
+
+%---------------------------------------------------------------
+function [ok, c0, F_contrast_multiple_rows, ind_X, exch_blocks, n_exch_blocks, ...
+          is_eoi, n_cond, use_half_permutations, ind_exch_blocks] = ...
+    get_exchangeability_blocks(xCon, xX, repeated_anova)
+% Derive the exchangeability blocks of a contrast and the design they imply.
+%
+% xCon           - contrast structure
+% xX             - design structure
+% repeated_anova - true if subject/block effects are modelled
+%
+% ok             - false if the contrast cannot be permuted (caller must abort)
+% c0             - contrast, reduced to its first column for rank-1 F-contrasts
+% F_contrast_multiple_rows - F-contrast whose rank exceeds 1
+% ind_X          - columns of the design the contrast is defined on
+% exch_blocks    - contrast entries on those columns
+% n_exch_blocks  - number of exchangeability blocks
+% is_eoi         - contrast is an effects-of-interest F-contrast (eye matrix)
+% n_cond         - number of conditions: 0 = correlation/regression,
+%                  1 = one-sample t-test, >1 = Anova
+% use_half_permutations - equal sample sizes allow using half the permutations
+% ind_exch_blocks - design columns belonging to each exchangeability block
+
+ok = true;
+
+% get contrast and name
+c0 = xCon.c;
+F_contrast_multiple_rows = 0;
+
+% for F-contrasts if rank is 1 we can use the first row
+if strcmp(xCon.STAT,'F')
+  if rank(c0) == 1
+    c0 = c0(:,1);
+  else
+    F_contrast_multiple_rows = 1;
+  end
+end
+
+[indi, indj] = find(c0~=0);
+ind_X = unique(indi)';
+
+% check for contrasts that are defined for columns with subject effects
+if ~isempty(xX.iB)
+  if max(ind_X) > min(xX.iB)
+    fprintf('ERROR: No contrasts on subjects/block effects allowed.\n');
+    ok = false;
+    return
+  end
+end
+
+% find exchangeability blocks using contrasts without zero values
+exch_blocks   = c0(ind_X,:);
+
+n_exch_blocks = length(ind_X);
+
+% recognize effects of interest contrast for F-tests
+is_eoi = false;
+if F_contrast_multiple_rows && size(exch_blocks,2) == n_exch_blocks
+  is_eoi = all(all(exch_blocks == eye(n_exch_blocks)));
+  if is_eoi
+    n_exch_blocks = 1;
+  end
+end
+
+% check for exchangeability blocks and design matrix
+if n_exch_blocks == 1
+  % check whether the contrast is defined at columns for condition effects.
+  % ind_X may hold more than one column here, because an effects-of-interest
+  % F-contrast collapses n_exch_blocks to 1 while keeping all its columns, so
+  % the two index sets have to be compared as sets and not element by element.
+  n_cond = numel(intersect(xX.iH, ind_X));
+else
+  n_cond = 0;
+  n_data_cond = [];
+  for k=1:length(xX.iH)
+    n_data_cond = [n_data_cond sum(xX.X(:,xX.iH(k)))];
+  end
+
+  % for F-contrast with multiple rows n_cond is always n_exch_blocks
+  if F_contrast_multiple_rows && length(xX.iH) > 1
+    n_cond = n_exch_blocks;
+  elseif F_contrast_multiple_rows && length(xX.iH) == 1
+    n_cond = 0;
+  else
+    for j=1:n_exch_blocks
+      col_exch_blocks = find(c0==exch_blocks(j));
+      for k=1:length(col_exch_blocks)
+        n_cond = n_cond + length(find(xX.iH==col_exch_blocks(k)));
+      end
+    end
+  end
+
+end
+
+use_half_permutations = 0;
+% check if sample size is equal for both conditions
+if n_cond == 2
+  try
+    % repated Anova or F-test don't allow to use only half of the permutions
+    if repeated_anova || strcmp(xCon.STAT,'F')
+      use_half_permutations = 0;
+    elseif sum(n_data_cond(c0==exch_blocks(1))) == sum(n_data_cond(c0==exch_blocks(2)))
+      use_half_permutations = 1;
+    end
+  end
+end
+
+ind_exch_blocks = cell(n_exch_blocks,1);
+for j=1:n_exch_blocks
+  if strcmp(xCon.STAT,'T')
+    ind_exch_blocks{j} = find(c0==exch_blocks(j));
+  else
+    ind_exch_blocks{j} = ind_X(j);
+  end
+end
+
+%---------------------------------------------------------------
+function [label, interaction_design, ind_exch_blocks] = get_design_labels(n_cond, ...
+    n_data, xX, c0, exch_blocks, n_exch_blocks, ind_exch_blocks, is_eoi, ...
+    F_contrast_multiple_rows, repeated_anova)
+% Recognize the design behind a contrast and derive the labels that are permuted.
+%
+% n_cond             - 0 = correlation/regression, 1 = one-sample t-test,
+%                      >1 = Anova with at least 2 groups
+% label              - group label per data point, 0 where the contrast is undefined
+% interaction_design - differential contrast across two or more regressors
+% ind_exch_blocks    - may be corrected here for effects-of-interest F-contrasts
+
+interaction_design = false;
+
+if n_cond == 0 % correlation
+  label = 1:n_data;
+
+  % we have to correct for some F-contrasts (i.e. effects of interest
+  % with eyes)
+  if F_contrast_multiple_rows && is_eoi
+    is_one = find(any(c0'));
+    for j=1:numel(is_one)
+      ind_exch_blocks{j} = is_one(j);
+    end
+    ind_exch_blocks = ind_exch_blocks';
+  end
+
+  if n_exch_blocks >= 2 && any(diff(exch_blocks(:))) % # exch_blocks >1 & differential contrast
+    fprintf('Interaction design between two or more regressors found\n')
+    interaction_design = true;
+
+    % remove all entries where contrast is not defined
+    % this does not work for all data CG 20200829
+    % label(all(xX.X(:,ind_X)==0,2)) = [];
+  else
+    if repeated_anova
+      fprintf('Repeated Anova with contrast for covariate found\n');
+    else
+      fprintf('Multiple regression design found\n');
+    end
+  end
+
+else % one-sample t-test or Anova: both use exchangeability blocks for labels
+  if n_cond == 1
+    fprintf('One sample t-test found\n');
+  elseif repeated_anova
+    fprintf('Repeated Anova found\n');
+  else
+    fprintf('Anova found\n');
+  end
+
+  label = zeros(1,n_data);
+  for j=1:n_exch_blocks
+    for k=1:length(ind_exch_blocks{j})
+      label(xX.X(:,ind_exch_blocks{j}(k))~=0) = j;
+    end
+  end
+end
+
+%---------------------------------------------------------------
+function [Rz, nuisance_method, str_permutation_method] = get_nuisance_method(xX, ...
+    ind_X, interaction_design, nuisance_method, repeated_anova)
+% Guttman partitioning of the design matrix and choice of the permutation method.
+%
+% Rz                     - residual forming matrix of the nuisance variables Z
+% nuisance_method        - may be downgraded to Draper-Stoneman (0) here if there
+%                          are no nuisance variables, or for a repeated Anova
+% str_permutation_method - name of the resulting method
+
+% Guttman partioning of design matrix into effects of interest X and nuisance variables Z
+X = xX.X(:,ind_X);
+ind_Z = [xX.iH xX.iC xX.iB xX.iG];
+ind_Z(ind_X) = [];
+Z = xX.X(:,ind_Z);
+
+Hz = Z*pinv(Z);
+Rz = eye(size(X,1)) - Hz;
+
+% if Hz is zero or Ic is empty then no confounds were found and we can skip the time-consuming
+% Freedman-Lane permutation
+if (all(~any(Hz)) || isempty(xX.iC)) || all(~any(diff(Hz))) || (interaction_design && numel(xX.iC) == numel(ind_X))
+  exist_nuisance = false;
+else
+  exist_nuisance = true;
+end
+
+if ~exist_nuisance && nuisance_method > 0
+  fprintf('No nuisance variables were found: Use Draper-Stoneman permutation.\n\n');
+  nuisance_method = 0;
+end
+
+if nuisance_method > 0 && repeated_anova
+  fprintf('Use Draper-Stoneman permutation for repeated measures Anova.\n\n');
+  nuisance_method = 0;
+end
+
+switch nuisance_method
+case 0
+  str_permutation_method = 'Draper-Stoneman';
+case 1
+  str_permutation_method = 'Freedman-Lane';
+case 2
+  str_permutation_method = 'Smith';
+end
+
+%---------------------------------------------------------------
+function exch_block_labels = load_exch_blocks(f, n_data)
+% Load an explicitly supplied exchangeability block structure.
+%
+% f       - name of a text file with one integer label per data point (in the
+%           order of the rows of the design matrix), a mat-file containing such
+%           a vector, or the vector itself
+% n_data  - number of data points of the design
+%
+% exch_block_labels - block label per data point, renumbered to 1..n_blocks,
+%                     or empty if the file could not be used (caller must abort)
+%
+% Data are only ever permuted within a block, so this is the way to describe a
+% structure that is not visible in the design matrix (sites, families, scanners)
+% or to override a design that is not recognized correctly.
+
+exch_block_labels = [];
+
+if iscell(f), f = f{1}; end
+
+if ischar(f)
+  if ~exist(f,'file')
+    fprintf('\nError: Exchangeability blocks file %s not found.\n\n', f);
+    return
+  end
+  [~,~,ext] = fileparts(f);
+  try
+    if strcmpi(ext,'.mat')
+      S  = load(f);
+      fn = fieldnames(S);
+      b  = S.(fn{1});
+    else
+      b = load(f); % plain text with one label per row
+    end
+  catch
+    fprintf('\nError: Could not read exchangeability blocks file %s.\n\n', f);
+    return
+  end
+else
+  b = f;
+end
+
+b = double(b(:))';
+
+if numel(b) ~= n_data
+  fprintf('\nError: The exchangeability blocks have %d entries, but the design has %d data points.\n\n', numel(b), n_data);
+  return
+end
+
+if any(~isfinite(b)) || any(b ~= round(b))
+  fprintf('\nError: The exchangeability blocks must be given as integer labels.\n\n');
+  return
+end
+
+% renumber to 1..n_blocks, the permutation code indexes blocks by their label
+[~,~,b] = unique(b);
+b = b(:)';
+
+n_tp = accumarray(b(:), 1)';
+
+if all(n_tp == 1)
+  fprintf('\nError: Every exchangeability block holds a single data point, so nothing can be permuted.\n\n');
+  return
+end
+
+if any(n_tp == 1)
+  fprintf('\nWarning: %d exchangeability blocks hold a single data point. These data points are never permuted.\n', sum(n_tp == 1));
+end
+
+exch_block_labels = b;
+
+%---------------------------------------------------------------
+function check_permutation_labels(perm_labels, n_cond, ind_label, exch_block_labels, ...
+    exch_block_labels_data_defined)
+% Verify the generated permutations before they are used.
+%
+% Exchangeability is an assumption, not a result: if data are exchanged across
+% blocks that are not exchangeable, every p-value of the analysis is wrong, and
+% the resulting miscalibration is hard to spot in the output. It is cheap to
+% assert the property directly, so we do that rather than infer it later.
+
+if n_cond == 1 % one-sample t-test: data are sign-flipped, never moved
+  if ~all(abs(perm_labels(:)) == 1)
+    error('Permutation error: sign-flipping labels must all be +1 or -1.');
+  end
+  return
+end
+
+% each permutation must be a permutation of the data points that the contrast
+% is defined for, i.e. no data point is dropped or used twice
+expected = sort(ind_label(:))';
+if ~isequal(sort(perm_labels,2), repmat(expected, size(perm_labels,1), 1))
+  error(['Permutation error: at least one permutation is not a permutation of ' ...
+         'the data points of the contrast.']);
+end
+
+% and it may only exchange data points inside their own exchangeability block
+src_blocks = reshape(exch_block_labels(perm_labels), size(perm_labels));
+dst_blocks = repmat(exch_block_labels_data_defined(:)', size(perm_labels,1), 1);
+
+if ~isequal(src_blocks, dst_blocks)
+  n_bad = sum(any(src_blocks ~= dst_blocks, 2));
+  error(['Permutation error: %d of %d permutations exchange data across ' ...
+         'exchangeability blocks. The design was not correctly recognized and ' ...
+         'the resulting p-values would be invalid.'], n_bad, size(perm_labels,1));
+end
+
+%---------------------------------------------------------------
+function [perm_labels, n_perm] = get_permutation_labels(n_perm, use_half_permutations, ...
+    n_cond, n_data_with_contrast, ind_label, label, exch_block_labels_data_defined, ...
+    ind_label_gt0, unique_labels, n_unique_labels)
+% Pre-generate the sequence of permutation labels used by the permutation loop.
+%
+% Each draw is rejection-sampled against the permutations drawn before it so that
+% no permutation is used twice. It depends on nothing but the previous draws, so
+% generating the whole sequence up front yields exactly the same labels (and
+% consumes the random number stream in exactly the same order) as drawing them
+% inside the loop.
+%
+% perm_labels - one row per permutation: the sign vector for a one-sample t-test,
+%               otherwise the sorted permutation order
+% n_perm      - possibly reduced if no further unique permutations can be found
+
+if use_half_permutations % each draw also covers its mirrored counterpart
+  step = 2;
+else
+  step = 1;
+end
+
+perm_labels = zeros(length(1:step:n_perm), n_data_with_contrast);
+
+perm = 1;
+i    = 0;
+while perm <= n_perm
+
+  i = i + 1;
+
+  % first permutation is always the unpermuted model
+  if perm == 1
+    if n_cond == 1 % one-sample t-test
+      rand_label = ones(1,n_data_with_contrast);
+      label_matrix = rand_label;
+    else % correlation or Anova
+      rand_order_sorted = ind_label;
+      label_matrix = rand_order_sorted;
+    end
+  else
+    if n_cond == 1 % one-sample t-test
+      rand_label = sign(randn(1,n_data_with_contrast));
+      while any(ismember(label_matrix,rand_label,'rows'))
+        rand_label = sign(randn(1,n_data_with_contrast));
+      end
+    else % correlation or Anova
+
+      % permute inside exchangeability blocks only
+      rand_order = zeros(1,n_data_with_contrast);
+      rand_order_sorted = zeros(1,n_data_with_contrast);
+      for k = 1:max(exch_block_labels_data_defined)
+        ind_block   = find(exch_block_labels_data_defined == k);
+        n_per_block = length(ind_block);
+        rand_order(ind_block) = ind_label(ind_block(randperm(n_per_block)));
+      end
+
+      % go through defined labels and sort inside
+      for k=1:n_unique_labels
+        ind_block = find(label(ind_label_gt0) == unique_labels(k));
+        rand_order_sorted(ind_block) = sort(rand_order(ind_block));
+      end
+
+      % check whether this permutation was already used
+      count_trials = 0;
+      while any(ismember(label_matrix,rand_order_sorted,'rows'))
+        count_trials = count_trials + 1;
+
+        % stop the permutation loop for too many successless trials for finding
+        % new permutations
+        if count_trials > 100000
+          fprintf('Stopped after %d permutations because there were too many successless trials for finding new permutations.\n',perm);
+          fprintf('Probably there are some missing values for some subjects and the number of maximal permutations was too high.\n');
+          n_perm = perm; % stop the permutation loop
+          perm_labels(i,:) = rand_order_sorted;
+          perm_labels = perm_labels(1:i,:);
+          return
+        end
+
+        for k = 1:max(exch_block_labels_data_defined)
+          ind_block   = find(exch_block_labels_data_defined == k);
+          n_per_block = length(ind_block);
+          rand_order(ind_block) = ind_label(ind_block(randperm(n_per_block)));
+        end
+
+        % go through defined labels and sort inside
+        for k=1:n_unique_labels
+          ind_block = find(label(ind_label_gt0) == unique_labels(k));
+          rand_order_sorted(ind_block) = sort(rand_order(ind_block));
+        end
+
+      end
+    end
+  end
+
+  % keep the drawn permutation and remember it to check for unique permutations
+  if n_cond == 1 % one-sample t-test
+    perm_labels(i,:) = rand_label;
+    if perm > 1
+      label_matrix = [label_matrix; rand_label];
+    end
+  else
+    perm_labels(i,:) = rand_order_sorted;
+    if perm > 1
+      if use_half_permutations % the mirrored permutation is used up as well
+        label_matrix = [label_matrix; rand_order_sorted; ...
+          [rand_order_sorted(label(ind_label) == 2) rand_order_sorted(label(ind_label) == 1)]];
+      else
+        label_matrix = [label_matrix; rand_order_sorted];
+      end
+    end
+  end
+
+  perm = perm + step;
+end
+
+%---------------------------------------------------------------
+function plot_distribution(val_max,val_th,name,alpha,col,order,val0_max,val0_min)
+
+corr = 1;
+
+n = length(val_th);
+sz_val_max = length(val_max);
+
+% allow other thresholds depending on # of permutations
+n_alpha = 3;
+if sz_val_max < 1000, n_alpha = 2; end
+if sz_val_max <  100, n_alpha = 1; end
+
+% with 20 values we have the lowest possible alpha of 0.05
+if sz_val_max >= 20
+  alpha  = alpha(1:n_alpha);
+  val_th = val_th(:,1:n_alpha);
+
+  [hmax, xmax] = hist(val_max, 100);
+      
+  subplot(2,2,(2*order)-1)
+  
+  h = bar(xmax,hmax);
+  set(h,'FaceColor',[.5 .5 .5],'EdgeColor',[.5 .5 .5]);
+
+  max_h = max(hmax);
+  lim_x = xlim;
+
+  % plot maximum observed value for unpermuted model
+  hl = line([val0_max val0_max], [0 max_h]);
+  set(hl,'Color',[0.3333 1 0],'LineWidth',2);
+  text(0.95*val0_max,0.95*max_h,'Max. observed value ',...
+    'Color',[0.3333 1 0],'HorizontalAlignment','Right','FontSize',8)
+    
+  % plot sign-flipped minimum observed value for unpermuted model
+  if val0_min < 0
+    hl = line([-val0_min -val0_min], [0 max_h]);
+    set(hl,'Color',[0 0.6667 1],'LineWidth',2);
+    text(0.95*val0_max,0.85*max_h,'Max. observed value (inverse contrast) ',...
+      'Color',[0 0.6667 1],'HorizontalAlignment','Right','FontSize',8)
+  end
+  
+  % plot thresholds
+  for j=1:n_alpha
+    hl = line([val_th(n,j) val_th(n,j)], [0 max_h]);
+    set(hl,'Color',col(j,:),'LineStyle','--');
+    text(0.95*lim_x(2),(0.4+0.1*j)*max_h,['p<' num2str(alpha(j))],...
+      'Color',col(j,:),'HorizontalAlignment','Right','FontSize',8)
+  end
+  
+  ylabel('Frequency');
+  xlabel(['Max ' name]);
+  if corr
+    title(['Distribution of maximum ' name],'FontWeight','bold');
+  else
+    title(['Distribution of ' name],'FontWeight','bold');
+  end
+  
+  subplot(2,2,2*order)
+  
+  val_min = min(min(val_th(1:n,:)));
+  val_max = max(max(val_th(1:n,:)));
+  if val_max/val_min > 10
+    hp = semilogy(1:n,val_th(1:n,:));
+    yl = log10(ylim);
+    ylim(10.^[floor(yl(1)) ceil(yl(2))])
+  else
+    hp = plot(1:n,val_th(1:n,:));
+  end
+  
+  for j=1:n_alpha
+    set(hp(j),'Color',col(j,:));
+  end
+  
+  if corr
+    title(['Corrected threshold of ' name],'FontWeight','bold')
+  else
+    title(['Uncorr. threshold of ' name],'FontWeight','bold')
+  end
+  ylabel('Threshold')
+  xlabel('Permutations')   
+end
+
+%---------------------------------------------------------------
+function Xperm = permuted_design(X, Pset, Rz, ind_X, nuisance_method, ...
+    n_exch_blocks, n_cond, exch_blocks)
+% apply one permutation to the design matrix
+%
+% Freedman-Lane permutes the data and leaves the design alone. Draper-Stoneman
+% permutes the columns of interest, and Smith permutes them after orthogonalising
+% them with respect to the nuisance variables.
+
+Xperm = X;
+
+switch nuisance_method
+case 0 % Draper-Stoneman is permuting X
+  Xperm(:,ind_X) = Pset*X(:,ind_X);
+case 1 % Freedman-Lane is permuting Y
+  % the design is untouched
+case 2 % Smith method is additionally orthogonalizing X with respect to Z
+  Xperm(:,ind_X) = Pset*Rz*X(:,ind_X);
+end
+
+% correct interaction designs
+% # exch_blocks >1 & # cond == 0 & differential contrast
+if n_exch_blocks >= 2 && n_cond == 0 && ~all(exch_blocks(:))
+  Xperm2 = Xperm;
+  Xperm2(:,ind_X) = 0;
+  for j = 1:n_exch_blocks
+    ind_Xj = find(X(:,ind_X(j)));
+    Xperm2(ind_Xj,ind_X(j)) = sum(Xperm(ind_Xj,ind_X),2);
+  end
+  Xperm = Xperm2;
+end
+
+%---------------------------------------------------------------
+function tb = tail_init(K, n)
+% buffer holding the K largest values seen so far, for each of n elements
+
+tb.K   = K;
+tb.n   = n;
+tb.buf = -inf(K, n, 'single');
+tb.cnt = 0;
+tb.mn  = [];
+tb.pos = [];
+
+%---------------------------------------------------------------
+function tb = tail_update(tb, v)
+% enter one permutation (v: 1 x n) into the running top-K of every element
+%
+% Once the buffer has filled up, only the elements whose current minimum is beaten
+% have to be touched at all, and the chance of that decays like K/m as the
+% permutations pile up. The whole run therefore costs on the order of
+% n*K*log(n_perm/K) element operations, which is nothing next to the TFCE.
+
+if tb.cnt < tb.K
+  tb.cnt = tb.cnt + 1;
+  tb.buf(tb.cnt,:) = v;
+  if tb.cnt == tb.K
+    [tb.mn, tb.pos] = min(tb.buf, [], 1);
+  end
+  return
+end
+
+hit = v > tb.mn;
+if ~any(hit), return; end
+
+idx = find(hit);
+tb.buf(tb.pos(idx) + (idx-1)*tb.K) = v(idx);
+
+if numel(idx) > tb.n/2
+  % touching most columns anyway: indexing out a copy of them would cost more
+  [tb.mn, tb.pos] = min(tb.buf, [], 1);
+else
+  [tb.mn(idx), tb.pos(idx)] = min(tb.buf(:,idx), [], 1);
+end
+
+%---------------------------------------------------------------
+function P = tail_pvalue(tb, obs, cnt, n_draws, n_exc_min)
+% uncorrected P-values, resolved below the 1/n_draws floor of plain counting
+%
+% tb        - tail buffer of the permutation distribution, as an upper tail
+% obs       - observed statistic, already turned into an upper tail
+% cnt       - how often the permutations reached or exceeded obs
+% n_draws   - number of permutations drawn
+% n_exc_min - leave elements exceeded at least this often to plain counting
+%
+% Counting resolves nothing below 1/n_draws, and that floor is what forces a
+% permutation test to run many thousands of permutations. Where the observed
+% statistic was exceeded often enough the count is already precise and is kept.
+% Everywhere else a Generalised Pareto distribution is fitted to the tail of the
+% permutation distribution of that element and the P-value read off it,
+%
+%   P = (m/n_draws) * (1 - F_gpd(obs - u))
+%
+% where u is the threshold below the m largest permuted values. At obs = u the
+% fitted term is exactly 1 and the two estimates coincide, so the P-value stays
+% continuous where the fit takes over from the count.
+%
+% The shape of the tail is pooled across elements, the scale is not. Every element
+% carries the permutation distribution of the same statistic under the same
+% design, so the elements differ from one another in scale, not in shape. Fitting
+% the shape k separately for each element therefore spends a hundred tail values
+% on a number they all share, and the error in it is what dominates the error of
+% the extrapolation: on the checks in val_pareto, pooling k lifts the share of
+% elements landing within a factor of two of the truth at P = 1e-4 from 45% to
+% 60%, without moving the median. So k is estimated once, over elements sampled
+% across the image, and only the scale is fitted per element -- which follows in
+% closed form from the mean of the exceedances, since the Generalised Pareto has
+% mean sigma/(1 + k).
+%
+% The tail size m is not fixed either: the fit is repeated for a range of m and
+% the one whose Anderson-Darling statistic says it describes the observed tail
+% best is kept. An element whose tail none of them describes is left to counting
+% rather than extrapolated from a fit that does not hold.
+%
+% Winkler et al., Faster permutation inference in brain imaging, NeuroImage
+% 141:502-516, 2016.
+
+P = cnt/n_draws;
+
+K = min(tb.cnt, tb.K);
+if K < 30, return; end
+
+% the elements counting cannot resolve, and only those, are worth fitting
+need = (cnt < n_exc_min) & isfinite(obs);
+if ~any(need), return; end
+
+G   = double(sort(tb.buf(1:K,need), 1, 'descend'));
+ob  = double(obs(need));
+Pn  = P(need);
+nn  = size(G,2);
+
+% Elements the shape is pooled over. These are sampled from the WHOLE image, not
+% from the elements being fitted: the latter were selected for carrying a large
+% observed statistic, and selecting on that would bias the tails they are drawn
+% from. Spreading the sample evenly keeps this reproducible.
+n_shape    = min(20000, tb.n);
+shape_cols = round(linspace(1, tb.n, n_shape));
+Gs         = double(sort(tb.buf(1:K,shape_cols), 1, 'descend'));
+
+best_ad = inf(1, nn);
+best_p  = Pn;
+
+cands = unique(round(K*(0.9:-0.1:0.3)));
+cands = cands(cands >= 20 & cands <= K-1);
+
+for m = cands
+  % the shape, pooled over the sampled elements. The median is what makes this
+  % robust: the individual estimates are noisy, but they scatter around a value
+  % they have in common.
+  us     = (Gs(m,:) + Gs(m+1,:))/2;
+  ks     = gpd_pwm(flipud(Gs(1:m,:)) - us);
+  k_pool = median(ks(isfinite(ks)));
+
+  % threshold sits between the m-th and the (m+1)-th largest permuted value
+  u = (G(m,:) + G(m+1,:))/2;
+  y = flipud(G(1:m,:)) - u;              % exceedances, ascending
+
+  % Two shapes are tried at every tail size: the pooled one, and the exponential
+  % limit k = 0. The exponential is the safety net. A Generalised Pareto with
+  % k > 0 has a finite upper end point at u + sigma/k, and whenever the observed
+  % statistic lies beyond that end point the fit returns exactly zero. But the
+  % observation is itself proof that the end point is wrong, so such a fit is
+  % rejected rather than believed. The exponential has infinite support and
+  % therefore always answers.
+  for variant = 1:2
+    if variant == 1
+      if ~isfinite(k_pool) || k_pool <= -1, continue; end
+      k = repmat(k_pool, 1, nn);
+    else
+      k = zeros(1, nn);
+    end
+
+    % given the shape, the scale follows from the mean of the exceedances
+    sigma = mean(y, 1) .* (1 + k);
+
+    p  = (m/n_draws) .* gpd_sf(ob - u, k, sigma);
+    ad = gpd_anderson(y, k, sigma);
+
+    ok  = (sigma > 0) & (ob >= u) & isfinite(p) & (p > 0) & (p <= 1) & isfinite(ad);
+    upd = ok & (ad < best_ad);
+
+    best_ad(upd) = ad(upd);
+    best_p(upd)  = p(upd);
+  end
+end
+
+% a tail that none of the candidates describes is counted, not extrapolated. The
+% cut-off is deliberately loose: it is there to catch a fit that has gone wrong,
+% not to test a hypothesis about the tail.
+trust     = isfinite(best_ad) & (best_ad < 5);
+Pn(trust) = best_p(trust);
+
+P(need) = Pn;
+
+%---------------------------------------------------------------
+function [k, sigma] = gpd_pwm(y)
+% Generalised Pareto parameters from probability-weighted moments
+%
+% y - exceedances, ascending, one column per element
+%
+% Hosking & Wallis (1987). Closed form, hence one call for all elements at once.
+% The distribution is parameterised as F(y) = 1 - (1 - k*y/sigma)^(1/k).
+
+m  = size(y,1);
+j  = (1:m)';
+
+a0 = mean(y, 1);
+a1 = sum(y .* ((m - j)/(m*(m-1))), 1);
+
+d     = a0 - 2*a1;
+k     = a0./d - 2;
+sigma = 2*a0.*a1./d;
+
+%---------------------------------------------------------------
+function S = gpd_sf(z, k, sigma)
+% survival function of the Generalised Pareto distribution
+
+k     = repmat(k,     size(z,1), 1);
+sigma = repmat(sigma, size(z,1), 1);
+
+S = zeros(size(z));
+
+% k -> 0 is the exponential limit, where the expression below is 0/0
+lin    = abs(k) < 1e-8;
+S(lin) = exp(-z(lin)./sigma(lin));
+
+q = 1 - k.*z./sigma;
+q(q < 0) = 0;                  % beyond the upper end point of a fit with k > 0
+S(~lin) = q(~lin).^(1./k(~lin));
+
+%---------------------------------------------------------------
+function A2 = gpd_anderson(y, k, sigma)
+% Anderson-Darling statistic of a fitted Generalised Pareto against its own tail
+%
+% Used to rank candidate tail sizes against each other, so what matters is that it
+% grows when the fit describes the observed tail less well.
+
+m = size(y,1);
+j = (1:m)';
+
+F = 1 - gpd_sf(y, k, sigma);
+F = min(max(F, 1e-12), 1-1e-12);
+
+A2 = -m - sum((2*j-1).*(log(F) + log(1 - flipud(F))), 1)/m;
+
+%---------------------------------------------------------------
+function Pset = make_Pset(perm_label, n_cond, n_data, n_data_with_contrast, ind_label)
+% build the permutation matrix for one draw of permutation labels
+%
+% For a one-sample t-test (n_cond == 1) the data are exchanged by sign-flipping,
+% which gives a diagonal matrix of +-1, otherwise a permutation matrix. Data
+% points outside the contrast leave their row and column at zero.
+
+if n_cond == 1 % one-sample t-test: sign flipping
+  ii = ind_label(1:n_data_with_contrast);
+  jj = ind_label(1:n_data_with_contrast);
+  vv = perm_label(1:n_data_with_contrast);
+else % correlation or Anova: permutation
+  ii = perm_label(1:n_data_with_contrast);
+  jj = ind_label(1:n_data_with_contrast);
+  vv = ones(1,n_data_with_contrast);
+end
+
+Pset = sparse(double(ii(:)), double(jj(:)), double(vv(:)), n_data, n_data);
+
+%---------------------------------------------------------------
+function pre = prepare_GLM_fast(Y, xX, Rz, nuisance_method, Pset0, Pset1)
+% precompute the permutation-invariant parts of the GLM, or return empty if the
+% accelerated statistic would not be identical to the unaccelerated one
+%
+% The residual sum of squares never needs the n_vox x n_data residual matrix.
+% For any design X the residual forming matrix R = I - X*pinv(X) is a projector,
+% so with Beta = pinv(X)*y
+%
+%   ResSS = ||R*y||^2 = ||y||^2 - Beta'*(X'*X)*Beta
+%
+% which costs O(n_vox*rank(X)^2) instead of O(n_vox*n_data*rank(X)). Draper-
+% Stoneman and Smith permute the design and leave the data alone, so ||y||^2 is
+% the same for every permutation and is computed once here.
+%
+% Freedman-Lane gains far more. It hands calc_GLM the permuted data Y*(Pset'*Rz)
+% while leaving X untouched, so pinv(X) and X'*X are loop-invariant. And because
+% the nuisance columns Z are part of the full design X, the full-model residual
+% forming matrix already annihilates them, R*Rz = R, so Rz drops out of the
+% residuals altogether:
+%
+%   ResSS = ||R*Rz*Pset*y||^2 = ||R*Pset*y||^2 = ||Pset*y||^2 - Beta'*(X'*X)*Beta
+%
+% with Beta = pinv(X)*Pset*y. Pset only permutes or sign-flips the rows it
+% touches, so ||Pset*y||^2 does not depend on the permutation either. The whole
+% permutation therefore collapses into the rank(X) x n_data matrix pinv(X)*Pset,
+% and the n_vox x n_data x n_data multiply Y*(Pset'*Rz) disappears from the loop.
+%
+% R*Rz = R only holds if the space spanned by Z is contained in the space spanned
+% by the design that is actually fitted. calc_GLM fits W*X on data that were
+% already whitened at load time, while Rz is built from the unwhitened Z, so the
+% identity breaks for a non-identity whitening matrix. It is therefore verified
+% here rather than assumed.
+
+pre = [];
+
+X   = full(xX.W*xX.X);
+pKX = pinv(X);
+
+if nuisance_method == 1
+  % Freedman-Lane: Rz may only be dropped from the residuals if R*Rz = R
+  R = eye(size(X,1)) - X*pKX;
+  if max(abs(R*Rz - R),[],'all') > 1e-5*max(1,max(abs(R),[],'all'))
+    return
+  end
+
+  % ||Pset*y||^2 is permutation-invariant only if Pset merely moves entries
+  % around without scaling them, and always draws from the same data points
+  [i0,j0,v0] = find(Pset0);
+  [~ ,j1,v1] = find(Pset1);
+  if ~all(abs(v0) == 1) || ~all(abs(v1) == 1) || ...
+      numel(unique(i0)) ~= numel(i0) || numel(unique(j0)) ~= numel(j0) || ...
+      ~isequal(sort(j0), sort(j1))
+    return
+  end
+
+  % the columns Pset draws from are the data points entering the statistic
+  pre.SSY = sum(double(Y(:,sort(j0))).^2, 2);
+else
+  pre.SSY = sum(double(Y).^2, 2);
+end
+
+pre.X    = X;
+pre.pKX  = pKX;
+pre.XtX  = X'*X;
+pre.trRV = size(X,1) - rank(xX.X);
+
+%---------------------------------------------------------------
+function [T, trRV] = calc_GLM_fast(Y,pre,xX,xCon,ind_mask,dim,Pset,nuisance_method)
+% compute the permuted T- or F-statistic from the quantities precomputed by
+% prepare_GLM_fast, without forming the permuted data or the residual matrix
+%
+% Y        - masked data as vector
+% pre      - precomputed permutation-invariant GLM quantities
+% xX       - permuted design structure
+% xCon     - contrast structure
+% ind_mask - index of mask image
+% dim      - image dimension
+% Pset     - permutation matrix of this permutation
+%
+% Output:
+% T        - T/F-values
+% trRV     - df
+
+c = xCon.c;
+
+if nuisance_method == 1
+  % Freedman-Lane: the design is unchanged, the permutation enters only through
+  % Pset, so the precomputed pseudoinverse still applies
+  pKX  = pre.pKX;
+  XtX  = pre.XtX;
+  Beta = Y*single((pKX*Pset)');   % n_vox x rank(X): the only large multiply
+  trRV = pre.trRV;
+else
+  % Draper-Stoneman/Smith permute the design, so the pseudoinverse has to be
+  % redone, but that is an n_data x rank(X) problem and negligible next to the
+  % n_vox work. The data are unpermuted, hence pre.SSY still applies.
+  X    = full(xX.W*xX.X);
+  pKX  = pinv(X);
+  XtX  = X'*X;
+  Beta = Y*single(pKX');
+  trRV = size(X,1) - rank(xX.X);
+end
+
+% ResSS = ||y||^2 - Beta'*(X'*X)*Beta. The subtraction is a cancellation, so the
+% quadratic form is accumulated in double even though Beta is single.
+Bd    = double(Beta);
+ResSS = pre.SSY - sum((Bd*XtX).*Bd, 2);
+
+% the cancellation can push an all-but-perfectly-fitted voxel slightly negative
+ResSS = max(ResSS, 0);
+
+ResMS = ResSS/trRV;
+
+%-Modify ResMS (a form of shrinkage) to avoid problems of very low variance
+ResMS = ResMS + 1e-3 * max(ResMS(isfinite(ResMS)));
+
+T = zeros(dim);
+
+if strcmp(xCon.STAT,'T')
+  Bcov = pKX*pKX';
+  con  = Beta*c;
+
+  T(ind_mask) = con./(eps+sqrt(ResMS*(c'*Bcov*c)));
+else
+  M   = c' * pinv(XtX) * c;
+  CB  = c' * Bd';                % q x n_vox
+  ess = sum(CB .* (pinv(M)*CB), 1)';
+  MVM = ess/xCon.eidf;
+
+  T(ind_mask) = MVM./ResMS;
+end
+
+%---------------------------------------------------------------
+function [T, trRV] = calc_GLM(Y,xX,xCon,ind_mask,dim)
+% compute T- or F-statistic using GLM
+%
+% Y        - masked data as vector
+% xX       - design structure
+% xCon     - contrast structure
+% ind_mask - index of mask image
+% dim      - image dimension
+%
+% Output:
+% T        - T/F-values
+% trRV     - df
+
+c = xCon.c;
+
+X = full(xX.W*xX.X);
+pKX = pinv(X);
+
+n_data = size(X,1);
+
+Beta = Y*pKX';
+
+% residual sum of squares. The fused mex computes the same sum of squared
+% residuals without materialising the n_vox x n_data residual matrix, which the
+% expression below has to write and re-read several times.
+if isempty(which('tfceMex_resss'))
+  res0 = Beta*(single(X'));
+  res0 = Y - res0; %-Residuals
+  res0 = res0.^2;
+  ResSS = double(sum(res0,2));
+  clear res0
+else
+  ResSS = tfceMex_resss(Y, Beta, X);
+end
+
+trRV = n_data - rank(xX.X);
+ResMS = ResSS/trRV;
+
+%-Modify ResMS (a form of shrinkage) to avoid problems of very low variance
+ResMS  = ResMS + 1e-3 * max(ResMS(isfinite(ResMS)));
+
+T = zeros(dim);
+
+if strcmp(xCon.STAT,'T')
+  Bcov = pKX*pKX';
+  con = Beta*c;
+
+  T(ind_mask) = con./(eps+sqrt(ResMS*(c'*Bcov*c)));
+else
+  %-Compute ESS = (c'*b)' * pinv(c'*pinv(X'*X)*c) * (c'*b)
+  % This is derived from the very design that Beta was estimated with. The
+  % previous version took the contrast projection from xX.xKXs, but a permuted
+  % xX only carries a new X and W, so xKXs still described the UNPERMUTED design
+  % space. Draper-Stoneman and Smith permute the columns of interest only, hence
+  % X'*X and the projection do change and the permuted F-statistic was wrong,
+  % which made F-tests anti-conservative. Note that we cannot simply hand the
+  % permuted space to spm_FcUtil, because the contrast object caches X1o/X0 for
+  % the space it was created with. For the unpermuted design this gives exactly
+  % the same F as spm_FcUtil('Hsqr',...) did.
+  M   = c' * pinv(X'*X) * c;
+  CB  = c' * double(Beta)';      % q x n_vox
+  ess = sum(CB .* (pinv(M)*CB), 1)';
+  MVM = ess/xCon.eidf;
+
+  T(ind_mask) = MVM./ResMS;
+end
+
+%---------------------------------------------------------------
+function [T, trRV] = calc_GLM_voxelwise(Y,xX,xC,xCon,ind_mask,dim,C,Pset,ind_X,pinv_method)
+% compute T- or F-statistic using GLM
+%
+% Y        - masked data as vector
+% xX       - design structure
+% xC       - covariate structure
+% xCon     - contrast structure
+% ind_mask - index of mask image
+% dim      - image dimension
+%
+% Output:
+% T        - T/F-values
+% trRV     - df
+
+% use Matlab pinv by default
+if nargin < 10, pinv_method = 1; end
+
+persistent has_pagemldivide
+if isempty(has_pagemldivide)
+  has_pagemldivide = ~isempty(which('pagemldivide'));
+end
+
+X = full(xX.W*xX.X);
+
+n_data = size(X,1);
+trRV = n_data - rank(xX.X);
+
+T  = zeros(dim);
+n_vox = size(Y,1);
+
+% Only permute C if the contrast is defined on the voxel-wise covariate. Any of
+% the covariate columns being tested is enough: the loop that used to stand here
+% reassigned its flag on every pass, so only the LAST of xC.cols decided, and a
+% covariate spread over several columns (one per group, say) was left unpermuted
+% whenever its last column happened not to be in the contrast.
+if ~isempty(Pset) && any(ismember(xC.cols, ind_X))
+  % C*full(Pset) is an n_vox x n_data x n_data multiply, but Pset holds at most
+  % one non-zero of magnitude 1 per column, so it only moves the columns of C
+  % around and flips their sign. Doing that directly is the same result.
+  [ii,jj,vv] = find(Pset);
+  Cp = zeros(size(C), 'like', C);
+  Cp(:,jj) = C(:,ii) .* cast(vv(:).', 'like', C);
+  C = Cp;
+end
+
+% The design of a voxel differs from X only in the columns xC.cols, and there
+% only on the rows where the original column is > 0. That makes it possible to
+% assemble Xi'*Xi and Xi'*y for ALL voxels from a handful of matrix products
+% against C and Y, and to solve the resulting rank(X) x rank(X) systems in one
+% batched call, instead of taking a pseudoinverse of a fresh design matrix for
+% every single voxel. Voxels whose system the batch solve cannot handle (a
+% rank-deficient Xi, e.g. a constant covariate) are handed back and redone with
+% the pseudoinverse, which resolves them in the least-squares sense.
+%
+% The statistic itself is only assembled once every voxel has been fitted,
+% because the shrinkage of ResMS below needs the maximum over all of them.
+num   = zeros(n_vox,1);   % c'*Beta for a t-contrast, ESS/eidf for an F-contrast
+cGc   = ones(n_vox,1);    % c'*inv(Xi'*Xi)*c, only used for a t-contrast
+ResMS = zeros(n_vox,1);
+todo  = (1:n_vox)';
+
+if has_pagemldivide
+  [num, cGc, ResMS, bad] = calc_GLM_voxelwise_batch(Y, X, C, xC, xCon, trRV);
+  todo = find(bad);
+end
+
+if ~isempty(todo)
+  [num(todo), cGc(todo), ResMS(todo)] = ...
+      calc_GLM_voxelwise_loop(Y, X, C, xC, xCon, trRV, pinv_method, todo);
+end
+
+%-Modify ResMS (a form of shrinkage) to avoid problems of very low variance
+% This shrinks towards the largest residual variance in the image, exactly as
+% calc_GLM does. The per-voxel loop this replaced applied the same line to a
+% SCALAR ResMS, where max(ResMS(isfinite(ResMS))) is that same scalar and the
+% whole thing collapsed to ResMS*1.001, so the voxel-wise path was in effect not
+% shrinking at all.
+ResMS = ResMS + 1e-3 * max(ResMS(isfinite(ResMS)));
+
+if strcmp(xCon.STAT,'T')
+  T0 = num./(eps+sqrt(ResMS.*cGc));
+else
+  T0 = num./ResMS;
+end
+
+T(ind_mask) = T0;
+
+%---------------------------------------------------------------
+function [num, cGc, ResMS, bad] = calc_GLM_voxelwise_batch(Y, X, C, xC, xCon, trRV)
+% vectorised voxel-wise GLM: assemble Xi'*Xi and Xi'*y for every voxel at once
+%
+% Output:
+% num   - c'*Beta for a t-contrast, ESS/eidf for an F-contrast
+% cGc   - c'*inv(Xi'*Xi)*c, only meaningful for a t-contrast
+% ResMS - residual mean square, NOT yet shrunk (the caller needs the global max)
+% bad   - voxels whose system was singular and that the caller must redo with pinv
+
+c = xCon.c;
+[n_data, r] = size(X);
+n_vox = size(Y,1);
+cols  = xC.cols(:)';
+n_col = numel(cols);
+fixed = setdiff(1:r, cols);
+n_fix = numel(fixed);
+A     = X(:,fixed);
+
+% the voxel-wise column is X(:,cols(j)) outside the mask, and C(i,:) inside it
+m    = false(n_data, n_col);
+base = zeros(n_data, n_col);
+for j = 1:n_col
+  m(:,j)    = X(:,cols(j)) > 0;
+  base(:,j) = X(:,cols(j)) .* ~m(:,j);
+end
+
+XtX = zeros(r, r, n_vox);
+Xty = zeros(r, n_vox);
+SSY = zeros(n_vox, 1);
+AtA = A'*A;
+
+% Working from Xi'*Xi rather than from Xi squares the condition number of the
+% problem, so the products below are accumulated in double even though Y and C
+% are single. A voxel-wise covariate that barely varies across subjects makes Xi
+% nearly collinear with the intercept, and in single precision that alone would
+% cost several digits of the t-value. The cast is done in chunks so that the
+% double copy of the data never has to exist all at once.
+chunk = 65536;
+for s = 1:chunk:n_vox
+  idx = s:min(s+chunk-1, n_vox);
+  n_b = numel(idx);
+  Yd  = double(Y(idx,:));
+  Cd  = double(C(idx,:));
+  C2  = Cd.^2;
+
+  if n_fix > 0
+    XtX(fixed,fixed,idx) = repmat(AtA, 1, 1, n_b);  % same design for every voxel
+    Xty(fixed,idx)       = (Yd*A).';
+  end
+
+  for j = 1:n_col
+    cj = cols(j);
+
+    if n_fix > 0
+      AV = A'*base(:,j) + (Cd*(A.*m(:,j))).';
+      XtX(fixed,cj,idx) = reshape(AV, n_fix, 1, n_b);
+      XtX(cj,fixed,idx) = reshape(AV, 1, n_fix, n_b);
+    end
+
+    Xty(cj,idx) = (Yd*base(:,j)).' + sum(Cd.*Yd.*m(:,j).', 2).';
+
+    for l = 1:n_col
+      vv = base(:,j)'*base(:,l) ...
+         + (Cd*(base(:,j).*m(:,l))).' ...
+         + (Cd*(base(:,l).*m(:,j))).' ...
+         + sum(C2.*double(m(:,j) & m(:,l)).', 2).';
+      XtX(cj,cols(l),idx) = reshape(vv, 1, 1, n_b);
+    end
+  end
+
+  SSY(idx) = sum(Yd.^2, 2);
+end
+clear Yd Cd C2
+
+% Rank test. Xi is rank-deficient at a voxel exactly when its voxel-wise columns
+% keep (almost) no variance once the fixed columns are projected out of them: a
+% covariate that hardly varies across subjects is collinear with the intercept.
+% What is left over is the Schur complement of the fixed block, and every term of
+% it has already been assembled above, so this costs almost nothing. Testing the
+% solve for Inf/NaN instead would NOT work: an LU solve of a singular system
+% returns a huge but finite answer through a tiny pivot rather than failing.
+if n_fix > 0
+  if rcond(AtA) < 1e-12
+    % the fixed part of the design is itself degenerate: pinv has to do all of it
+    num   = zeros(n_vox,1);
+    cGc   = ones(n_vox,1);
+    ResMS = zeros(n_vox,1);
+    bad   = true(n_vox,1);
+    return
+  end
+  AV  = XtX(fixed,cols,:);
+  W   = AtA \ reshape(AV, n_fix, n_col*n_vox);
+  Sc  = XtX(cols,cols,:) - pagemtimes(pagetranspose(AV), reshape(W, n_fix, n_col, n_vox));
+else
+  Sc  = XtX(cols,cols,:);
+end
+
+% the scale the leftover variance has to be judged against
+dg = zeros(n_col, n_vox);
+for j = 1:n_col
+  dg(j,:) = XtX(cols(j),cols(j),:);
+end
+
+if n_col == 1
+  s_min = reshape(Sc, [], 1);
+else
+  sv    = pagesvd(Sc);
+  s_min = reshape(sv(end,1,:), [], 1);
+end
+
+% ~(x > y) rather than x <= y, so that NaN counts as degenerate
+degenerate = ~(s_min > 1e-10 * max(dg, [], 1).');
+
+Bp   = pagemldivide(XtX, reshape(Xty, r, 1, n_vox));
+Beta = reshape(Bp, r, n_vox);
+
+% ResSS = ||y||^2 - Beta'*(Xi'*Xi)*Beta = ||y||^2 - Beta'*(Xi'*y)
+ResSS = SSY - sum(Beta.*Xty, 1).';
+ResSS = max(ResSS, 0);           % the subtraction is a cancellation
+
+% the caller shrinks this once it has seen every voxel
+ResMS = ResSS/trRV;
+
+if strcmp(xCon.STAT,'T')
+  % c'*inv(Xi'*Xi)*c, which is what pKX*pKX' amounts to for a full-rank Xi
+  cG  = pagemldivide(XtX, repmat(c, 1, 1, n_vox));
+  cGc = sum(c .* reshape(cG, r, n_vox), 1).';
+  num = Beta.'*c;
+
+  bad = degenerate | ~isfinite(num) | ~isfinite(cGc) | cGc <= 0;
+else
+  % ESS = (c'*Beta)' * pinv(c'*inv(Xi'*Xi)*c) * (c'*Beta), voxel by voxel.
+  %
+  % Replacing c by an orthonormal basis of its column space leaves ESS unchanged
+  % -- it only depends on the space the contrast spans -- and makes the q x q
+  % middle matrix invertible, so the pinv of the unvectorised formula becomes an
+  % ordinary batched solve. q is the rank of the contrast, i.e. xCon.eidf.
+  Q  = orth(c);
+  q  = size(Q,2);
+
+  cG = pagemldivide(XtX, repmat(Q, 1, 1, n_vox));      % r x q x n_vox
+  M  = pagemtimes(Q', cG);                             % q x q x n_vox
+  CB = Q'*Beta;                                        % q x n_vox
+
+  ess = sum(CB .* reshape(pagemldivide(M, reshape(CB, q, 1, n_vox)), q, n_vox), 1).';
+  num = ess/xCon.eidf;
+  cGc = ones(n_vox,1);                                 % unused for an F-contrast
+
+  bad = degenerate | ~isfinite(num);
+end
+
+%---------------------------------------------------------------
+function [num, cGc, ResMS] = calc_GLM_voxelwise_loop(Y, X, C, xC, xCon, trRV, pinv_method, todo)
+% voxel-wise GLM by an explicit pseudoinverse per voxel
+%
+% This is the reference implementation. It is used for the voxels the batched
+% solve could not resolve, and whenever the batched solve does not apply.
+%
+% Output:
+% num   - c'*Beta for a t-contrast, ESS/eidf for an F-contrast
+% cGc   - c'*inv(Xi'*Xi)*c, only meaningful for a t-contrast
+% ResMS - residual mean square, NOT yet shrunk (the caller needs the global max)
+
+c = xCon.c;
+
+% use pinv2 if it was faster
+if pinv_method == 2
+    pinvx  = @(x) pinv2(x);
+else
+    pinvx  = @(x) pinv(x);
+end
+
+num   = zeros(numel(todo),1);
+cGc   = ones(numel(todo),1);
+ResMS = zeros(numel(todo),1);
+
+% go through all voxels inside mask
+for k=1:numel(todo)
+
+  i = todo(k);
+
+  % get X and replace defined columns with voxel-wise covariate
+  Xi = X;
+  for j=1:numel(xC.cols)
+    ind = (X(:,xC.cols(j)) > 0);
+    Xi(ind,xC.cols(j)) = C(i,ind)';
+  end
+
+  pKX = pinvx(Xi);
+
+  Beta = pKX*Y(i,:)';
+
+  res0 = Beta'*single(Xi)';
+  res0 = res0 - Y(i,:); %-Residuals
+  res0 = res0.^2;
+  ResSS = double(sum(res0,2));
+
+  ResMS(k) = ResSS/trRV;
+
+  if strcmp(xCon.STAT,'T')
+    Bcov   = pKX*pKX';
+    num(k) = Beta'*c;
+    cGc(k) = c'*Bcov*c;
+  else
+    %-Compute ESS = (c'*b)' * pinv(c'*inv(Xi'*Xi)*c) * (c'*b), as in calc_GLM
+    M      = c' * (pKX*pKX') * c;
+    CB     = c' * double(Beta);
+    num(k) = (CB' * pinv(M) * CB)/xCon.eidf;
+  end
+end
+
+%---------------------------------------------------------------
+function xX = correct_xX(xX)
+% sometimes xX.iB and xX.iH are not correct and cannot be used to reliably recognize the design
+
+% vector of covariates and nuisance variables
+iCG = [xX.iC xX.iG];
+
+% set columns with covariates and nuisance variables to zero
+X = xX.X;
+X(:,iCG) = 0;
+
+ncol = size(X,2);
+
+% calculate sum of columns
+% The idea behind this is that for each factor the sum of all of its columns should be "1".
+Xsum = zeros(size(X));
+for i=1:ncol
+  % only sum up columns without covariates and nuisance variables
+  if isempty(find(iCG==i, 1))
+    Xsum(:,i) = sum(X(:,1:i),2);
+  end
+end
+
+% find columns where all entries are constant except zeros entries
+% that indicate columns with covariates and nuisance variables
+ind = find(any(diff(Xsum))==0 & sum(Xsum)>0);
+
+% no more than 2 factors expected
+if length(ind) > 2
+  error('Weird design was found that cannot be analyzed correctly.');
+end
+
+% correction is only necessary if 2 factors (iH/iB) were found
+if length(ind) > 1
+  iF = cell(length(ind),1);
+
+  j = 1;
+  % skip columns with covariates and nuisance variables
+  while find(iCG==j),  j = j + 1; end
+
+  for i=j:length(ind)
+    iF{i} = [j:ind(i)];
+  
+    j = ind(i)+1;
+    % skip columns with covariates and nuisance variables
+    while find(iCG==j), j = j + 1; end
+  end
+  
+  % not sure whether this will always work but usually iB (subject effects) should be larger than iH (time effects)
+%  if length(iF{1}) > length(iF{2})
+if 0 % will be probably not always correct 
+    xX.iB = iF{1};
+    xX.iH = iF{2};
+  else
+    xX.iB = iF{2};
+    xX.iH = iF{1};
+  end
+end
+
+%---------------------------------------------------------------
+function str = num2str_short(num)
+% get shorther strings for continuous numbers with length > 4
+
+if length(num) > 4
+  % check whether vector consist of continuous numbers
+  if all(diff(num)==1)
+    str = [num2str(num(1)) ':' num2str(num(end))];
+  else
+    str = num2str(num);
+  end
+else
+  str = num2str(num);
+end
+
+%---------------------------------------------------------------
+function varargout = palm_moments(varargin)
+% For a statistic that can be expressed as trace(A*W), for
+% a sample size of n observations, this function returns the
+% expected first three moments of the permutation distribution,
+% without actually computing any permutation.
+%
+% [mu,sigsq,gamm1,gamm2] = palm_moments(G)
+% [mu,sigsq,gamm1]       = palm_moments(A,W,n)
+%
+% Inputs:
+% - G : A PxV array of observations of the G random variable.
+%       The moments are unbiased and run along the 1st dimension.
+%       Typical case is P = number of permutations and V = 
+%       number of tests, e.g., voxels.
+% - A : A square matrix for a multivariate proper statistic,
+%       or a vector of A values for various univariate tests.
+% - W : A square matrix for a multivariate proper statistic,
+%       or a vector of W values for various univariate tests.
+% - n : Sample size on which the statistic is based.
+%
+% Outputs:
+% - mu    : Sample mean.
+% - sigsq : Sample variance (unbiased).
+% - gamm1 : Sample skewness (unbiased).
+% - gamm2 : Sample kurtosis (unbiased).
+%
+% For a complete description, see:
+% * Winkler AM, Ridgway GR, Douaud G, Nichols TE, Smith SM.
+%   Faster permutation inference in brain imaging.
+%   Neuroimage. 2016 Jun 7;141:502-516.
+%   http://dx.doi.org/10.1016/j.neuroimage.2016.05.068
+% 
+% For the estimators using trace(AW), the references are:
+% * Kazi-Aoual F, Hitier S, Sabatier R, Lebreton J-D. Refined
+%   approximations to permutation tests for multivariate
+%   inference. Comput Stat Data Anal. 1995;20(94):643-656.
+% * Minas C, Montana G. Distance-based analysis of variance:
+%   Approximate inference. Stat Anal Data Min. 2014;4:497-511.
+%
+% _____________________________________
+% Anderson M. Winkler
+% FMRIB / University of Oxford
+% Mar/2015
+% http://brainder.org
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% PALM -- Permutation Analysis of Linear Models
+% Copyright (C) 2015 Anderson M. Winkler
+%
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+if nargin == 1
+    
+    % For a set of values of the random variable G, return the
+    % first 4 moments.
+    
+    % Mean
+    G     = varargin{1};
+    n     = size(G,1);
+    mu    = sum(G,1)/n;
+    
+    % Variance
+    G0    = bsxfun(@minus,G,mu);
+    ssq   = sum(G0.^2,1);
+    sigsq = (ssq/(n-1));
+    
+    % Skewness
+    s2    = ssq/n; % biased variance
+    m3    = sum(G0.^3,1)/n;
+    gamm1 = m3./s2.^1.5;
+    gamm1 = gamm1 * sqrt((n-1)/n)*n/(n-2); % unbiased skewness
+
+    % Kurtosis (normal dist = 3)
+    if nargout == 4
+        m4    = sum(G0.^4,1)/n;
+        gamm2 = (m4./s2.^2);
+        gamm2 = ((n+1)* gamm2 -3*(n-1))*(n-1)/((n-2)*(n-3))+3; % unbiased kurtosis
+    else
+        gamm2 = [];
+    end
+    
+elseif nargin == 3
+    
+    % Compute the first three moments of the permutation distribution of
+    % the statistic G = trace(AW), for n subjects, using the method in
+    % Kazi-Aoual et al (1995). The variable names follow roughly the same
+    % as in the paper.
+    
+    % Take inputs
+    A = varargin{1};
+    W = varargin{2};
+    n = varargin{3};
+    
+    % If A and W are truly multivariate (i.e., square matrices), do as in
+    % the original paper. Otherwise, make simplifications as these are all
+    % scalars.
+    if size(A,1) == size(A,2)
+        
+        % Some auxiliary variables for ET2:
+        T    = trace(A);
+        T_2  = trace(A^2);
+        S_2  = sum(diag(A).^2);
+        Ts   = trace(W);
+        Ts_2 = trace(W^2);
+        Ss_2 = sum(diag(W).^2);
+        
+        % Some auxiliary variables for ET3:
+        T_3  = trace(A^3);
+        S_3  = sum(diag(A).^3);
+        U    = sum(A(:).^3);
+        R    = diag(A)'*diag(A^2);
+        B    = diag(A)'*A*diag(A);
+        Ts_3 = trace(W^3);
+        Ss_3 = sum(diag(W).^3);
+        Us   = sum(W(:).^3);
+        Rs   = diag(W)'*diag(W^2);
+        Bs   = diag(W)'*W*diag(W);
+        
+    else
+        
+        % Some auxiliary variables for ET2:
+        T    = A;
+        T_2  = A.^2;
+        S_2  = T_2;
+        Ts   = W;
+        Ts_2 = W.^2;
+        Ss_2 = Ts_2;
+        
+        % Some auxiliary variables for ET3:
+        T_3  = A.^3;
+        S_3  = T_3;
+        U    = T_3;
+        R    = T_3;
+        B    = T_3;
+        Ts_3 = W.^3;
+        Ss_3 = Ts_3;
+        Us   = Ts_3;
+        Rs   = Ts_3;
+        Bs   = Ts_3;
+    end
+    
+    % E(T):
+    mu = T.*Ts/(n-1);
+    
+    % V(T):
+    sigsq = 2*((n-1)*T_2-T.^2).*((n-1)*Ts_2-Ts.^2) / (n-1)^2/(n+1)/(n-2) ...
+        + (n*(n+1)*S_2-(n-1)*(T.^2+2*T_2)) .* (n*(n+1)*Ss_2-(n-1)*(Ts.^2+2*Ts_2)) ...
+        / (n+1)/n/(n-1)/(n-2)/(n-3);
+    
+    % E(T^3):
+    ET3 = ...
+        n^2*(n+1)*(n^2+15*n-4)*S_3.*Ss_3 ...
+        + 4*(n^4-8*n^3+19*n^2-4*n-16)*U.*Us ...
+        + 24*(n^2-n-4)*(U.*Bs+B.*Us) ...
+        + 6*(n^4-8*n^3+21*n^2-6*n-24)*B.*Bs ...
+        + 12*(n^4-n^3-8*n^2+36*n-48)*R.*Rs ...
+        + 12*(n^3-2*n^2+9*n-12)*(T.*S_2.*Rs + R.*Ts.*Ss_2) ...
+        + 3*(n^4-4*n^3-2*n^2+9*n-12)*T.*Ts.*S_2.*Ss_2 ...
+        + 24*( (n^3-3*n^2-2*n+8)*(R.*Us+U.*Rs) ...
+        + (n^3-2*n^2-3*n+12)*(R.*Bs+B.*Rs) ) ...
+        + 12*(n^2-n+4)*(T.*S_2.*Us+U.*Ts.*Ss_2) ...
+        + 6*(2*n^3-7*n^2-3*n+12)*(T.*S_2.*Bs+B.*Ts.*Ss_2) ...
+        - 2*n*(n-1)*(n^2-n+4)*( (2*U+3*B).*Ss_3+(2*Us+3*Bs).*S_3 ) ...
+        - 3*n*(n-1)^2*(n+4)*( (T.*S_2+4*R).*Ss_3+(Ts.*Ss_2+4*Rs).*S_3 ) ...
+        + 2*n*(n-1)*(n-2)*( (T.^3+6*T.*T_2+8*T_3).*Ss_3 ...
+        + (Ts.^3+6*Ts.*Ts_2+8*Ts_3).*S_3 ) ...
+        + T.^3.*((n^3-9*n^2+23*n-14)*Ts.^3+6*(n-4).*Ts.*Ts_2+8*Ts_3) ...
+        + 6*T.*T_2.*((n-4)*Ts.^3+(n^3-9*n^2+24*n-14)*Ts.*Ts_2+4*(n-3)*Ts_3) ...
+        + 8*T_3.*(Ts.^3+3*(n-3).*Ts.*Ts_2+(n^3-9*n^2+26*n-22)*Ts_3) ...
+        - 16*(T.^3.*Us+U.*Ts.^3)-6*(T.*T_2.*Us+U.*Ts.*Ts_2)*(2*n^2-10*n+16) ...
+        - 8*(T_3.*Us+U.*Ts_3)*(3*n^2-15*n+16)-(T.^3.*Bs+B.*Ts.^3) ...
+        * (6*n^2-30*n+24)-6*(T.*T_2.*Bs+B.*Ts.*Ts_2)*(4*n^2-20*n+24) ...
+        - 8*(T_3.*Bs + B.*Ts_3)*(3*n^2-15*n+24) ...
+        - (n-2)*( 24*(T.^3.*Rs+R.*Ts.^3)+6*(T.*T_2.*Rs+R.*Ts.*Ts_2)*(2*n^2-10*n+24) ...
+        + 8*(T_3.*Rs+R.*Ts_3)*(3*n^2-15*n+24)+(3*n^2-15*n+6) ...
+        .* (T.^3.*Ts.*Ss_2+T.*S_2.*Ts.^3) ...
+        + 6*(T.*T_2.*Ts.*Ss_2+T.*S_2.*Ts.*Ts_2)*(n^2-5*n+6) ...
+        + 48*(T_3.*Ts.*Ss_2+T.*S_2.*Ts_3) );
+    ET3 = ET3/n/(n-1)/(n-2)/(n-3)/(n-4)/(n-5);
+    
+    % The coefficient "3" below is missing from Kazi-Aoual et al (1995), but it
+    % is shown in the Supplementary Information of Minas and Montana (2014).
+    gamm1 = (ET3 - 3*mu.*sigsq - mu.^3)./sigsq.^1.5;
+    gamm2 = [];
+else
+    error('Incorrect number of arguments');
+end
+
+% Return results
+varargout{1} = mu;
+varargout{2} = sigsq;
+varargout{3} = gamm1;
+varargout{4} = gamm2;
+
+%---------------------------------------------------------------
+function pvals = palm_gamma(G,mu,sigsq,gamm1,rev,prepl)
+% Return the p-values for a Gamma distribution, parameterised by
+% its first three moments.
+%
+% pvals = palm_gamma(G,mu,s2,gamm1,rev)
+% 
+% Inputs:
+% - G     : Statistics for which p-values are to be computed.
+% - mu    : Distribution mean.
+% - sigsq : Distribution standard deviation.
+% - gamm1 : Distribution skewness.
+% - rev   : Use if lower values of the statistic are evidence in
+%           favour of the alternative.
+% - prepl : Replacement for what otherwise would be zero p-values
+%           in case of poor fits (e.g., statistic falls into the
+%           part of the distribution that has pdf=0. In these cases
+%           the p-value can be 1 or 1/(#perm) depending on which
+%           tail and the sign of the skewness.
+%
+% Outputs:
+% - pvals : p-values.
+% 
+% For a complete description, see:
+% * Winkler AM, Ridgway GR, Douaud G, Nichols TE, Smith SM.
+%   Faster permutation inference in brain imaging.
+%   Neuroimage. 2016 Jun 7;141:502-516.
+%   http://dx.doi.org/10.1016/j.neuroimage.2016.05.068
+% 
+% Other references:
+% * Mielke PW, Berry KJ, Brier GW. Application of Multi-Response
+%   Permutation Procedures for Examining Seasonal Changes in
+%   Monthly Mean Sea-Level Pressure Patterns. Mon Weather Rev.
+%   1981;109(1):120-126.
+% * Minas C, Montana G. Distance-based analysis of variance:
+%   Approximate inference. Stat Anal Data Min. 2014;7(6):450-470.
+% 
+% _____________________________________
+% Anderson M. Winkler
+% FMRIB / University of Oxford
+% May/2015
+% http://brainder.org
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% PALM -- Permutation Analysis of Linear Models
+% Copyright (C) 2015 Anderson M. Winkler
+%
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+% Note that there are no argument checking for speed, but
+% sizes of all inputs need to be the same, or the moments need to
+% be all scalars.
+
+if gamm1 == 0
+    
+    % If not skewed, use a normal approximation.
+    G     = (G - mu)./sigsq.^.5;
+    pvals = erfc(G/sqrt(2))/2;
+    
+else
+    
+    % Standardise G, so that all becomes a function of the skewness.
+    G    = (G - mu)./sigsq.^.5;
+    
+    % Gamma distribution parameters (Minas & Montana, 2014).
+    kpar = 4/gamm1.^2;
+    tpar = gamm1/2;
+    cpar = -2/gamm1;
+     
+    % Actual p-value. If there are negatives here, the probability can
+    % have an imaginary part, which is dealt with later.
+    if rev
+        if gamm1 > 0
+            tail = 'lower';
+        else
+            tail = 'upper';
+        end
+    else
+        if gamm1 > 0
+            tail = 'upper';
+        else
+            tail = 'lower';
+        end
+    end
+    pvals = gammainc((G-cpar)./tpar,kpar,tail);
+    
+    % Deal with imaginary parts.
+    if ~ isreal(pvals)
+        iidx = imag(pvals) ~= 0;
+        if rev
+            if gamm1 > 0
+                pvals(iidx) = prepl;
+            else
+                pvals(iidx) = 1;
+            end
+        else
+            if gamm1 > 0
+                pvals(iidx) = 1;
+            else
+                pvals(iidx) = prepl;
+            end
+        end
+    end
+end
+
+%---------------------------------------------------------------
+function Z = palm_gtoz(G,df1,df2)
+% Convert a G-statistic (or any of its particular cases)
+% to a z-statistic (normally distributed).
+%
+% Usage:
+% Z = palm_gtoz(G,df1,df2)
+%
+% Inputs:
+% G        : G statistic.
+% df1, df2 : Degrees of freedom (non-infinite).
+% 
+% Outputs:
+% Z        : Z-score
+%
+% If df2 = NaN and df1 = 1, G is treated as Pearson's r.
+% If df2 = NaN and df1 > 1, G is treated as R^2.
+% If df2 = NaN and df1 = 0, G is treated as z already.
+% 
+% _____________________________________
+% Anderson Winkler
+% FMRIB / University of Oxford
+% Jan/2014
+% http://brainder.org
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% PALM -- Permutation Analysis of Linear Models
+% Copyright (C) 2015 Anderson M. Winkler
+% 
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% any later version.
+% 
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+% Note that for speed, there's no argument checking.
+
+% If df2 is NaN, this is r, R^2, or z already
+if isnan(df2(1))
+    
+  if df1 == 0
+      
+    % If df1 is zero, this is already a z-stat (this is here more for
+    % compatibility).
+    Z = G;
+      
+  elseif df1 == 1
+      
+    % If rank(C) = 1, i.e., df1 = 1, this is r, so
+    % do a Fisher's r-to-z stransformation
+    Z = atanh(G);
+      
+  elseif df1 > 1
+      
+    % If rank(C) > 1, i.e., df1 > 1, this is R^2, so
+    % use a probit transformation.
+    Z = -erfcinv(2*G)*sqrt(2); %Z = norminv(G);
+      
+  end
+
+else
+  siz = size(G);
+  Z = zeros(siz);
+  df2 = bsxfun(@times,ones(siz),df2);
+  if df1 == 1
+    
+    % Deal with precision issues working on each
+    % tail separately
+    idx = G > 0;
+    Z( idx) =  erfcinv(2*palm_gcdf(-G( idx),1,df2( idx)))*sqrt(2);
+    Z(~idx) = -erfcinv(2*palm_gcdf( G(~idx),1,df2(~idx)))*sqrt(2);
+    
+  elseif df1 == 0
+    
+    % If df1 is zero, this is already a z-stat (this is here more for
+    % compatibility).
+    Z = G;
+    
+  else
+    
+    % G-vals above the upper half are treated as
+    % "upper tail"; otherwise, "lower tail".
+    thr = (1./betainv(.5,df2/2,df1/2)-1).*df2/df1;
+    idx = G > thr;
+    
+    % Convert G-distributed variables to Beta-distributed
+    % variables with parameters a=df1/2 and b=df2/2
+    B = (df1.*G./df2)./(1+df1.*G./df2);
+    a = df1/2;
+    b = df2/2;
+    
+    % Convert to Z through a Beta incomplete function
+    %Z( idx) = -erfinv(2*betainc(1-B( idx),b( idx),a)-1)*sqrt(2);
+    %Z(~idx) =  erfinv(2*betainc(  B(~idx),a,b(~idx))-1)*sqrt(2);
+    Z( idx) =  erfcinv(2*betainc(1-B( idx),b( idx),a))*sqrt(2);
+    Z(~idx) = -erfcinv(2*betainc(  B(~idx),a,b(~idx)))*sqrt(2);
+    
+  end
+end
+
+%---------------------------------------------------------------
+% Copyright (C) 2012 Rik Wehbring
+% Copyright (C) 1995-2012 Kurt Hornik
+%
+% This file is part of Octave.
+%
+% Octave is free software; you can redistribute it and/or modify it
+% under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 3 of the License, or (at
+% your option) any later version.
+%
+% Octave is distributed in the hope that it will be useful, but
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+% General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with Octave; see the file COPYING.  If not, see
+% <http://www.gnu.org/licenses/>.
+
+% -*- texinfo -*-
+% @deftypefn {Function File} {} betainv (@var{x}, @var{a}, @var{b})
+% For each element of @var{x}, compute the quantile (the inverse of
+% the CDF) at @var{x} of the Beta distribution with parameters @var{a}
+% and @var{b}.
+% @end deftypefn
+
+% Author: KH <Kurt.Hornik@wu-wien.ac.at>
+% Description: Quantile function of the Beta distribution
+
+function inv = betainv (x, a, b)
+
+if (nargin ~= 3)
+  print_usage ();
+end
+
+if (~isscalar (a) || ~isscalar (b))
+  [retval, x, a, b] = common_size (x, a, b);
+  if (retval > 0)
+    error ('betainv: X, A, and B must be of common size or scalars');
+  end
+end
+
+if (iscomplex (x) || iscomplex (a) || iscomplex (b))
+  error ('betainv: X, A, and B must not be complex');
+end
+
+if (isa (x, 'single') || isa (a, 'single') || isa (b, 'single'))
+  inv = zeros (size (x), 'single');
+else
+  inv = zeros (size (x));
+end
+
+k = (x < 0) | (x > 1) | ~(a > 0) | ~(b > 0) | isnan (x);
+inv(k) = NaN;
+
+k = (x == 1) & (a > 0) & (b > 0);
+inv(k) = 1;
+
+k = find ((x > 0) & (x < 1) & (a > 0) & (b > 0));
+if (any (k))
+  if (~isscalar (a) || ~isscalar (b))
+    a = a(k);
+    b = b(k);
+    y = a ./ (a + b);
+  else
+    y = a / (a + b) * ones (size (k));
+  end
+  x = x(k);
+  
+  if (isa (y, 'single'))
+    myeps = eps ('single');
+  else
+    myeps = eps;
+  end
+  
+  l = find (y < myeps);
+  if (any (l))
+    y(l) = sqrt (myeps) * ones (length (l), 1);
+  end
+  l = find (y > 1 - myeps);
+  if (any (l))
+    y(l) = 1 - sqrt (myeps) * ones (length (l), 1);
+  end
+  
+  y_old = y;
+  for i = 1 : 10000
+    h     = (betacdf (y_old, a, b) - x) ./ betapdf (y_old, a, b);
+    y_new = y_old - h;
+    ind   = find (y_new <= myeps);
+    if (any (ind))
+      y_new (ind) = y_old (ind) / 10;
+    end
+    ind = find (y_new >= 1 - myeps);
+    if (any (ind))
+      y_new (ind) = 1 - (1 - y_old (ind)) / 10;
+    end
+    h = y_old - y_new;
+    if (max (abs (h)) < sqrt (myeps))
+      break;
+    end
+    y_old = y_new;
+  end
+  
+  inv(k) = y_new;
+end
+
+
+%---------------------------------------------------------------
+function gcdf = palm_gcdf(G,df1,df2)
+% Convert a pivotal statistic computed with 'pivotal.m'
+% (or simplifications) to a parametric p-value.
+% The output is 1-p, i.e. the CDF.
+% 
+% Usage:
+% cdf = palm_gcdf(G,df1,df2)
+% 
+% Inputs:
+% G        : G or Z statistic.
+% df1, df2 : Degrees of freedom (non infinite).
+%            df1 must be a scalar
+%            For z, use df1 = 0.
+%            For Chi2, use df1 = -1, and df2 as the df.
+% 
+% Outputs:
+% cdf      : Parametric cdf (1-p), based on a
+%            t, F, z or Chi2 distribution.
+% 
+% _____________________________________
+% Anderson Winkler
+% FMRIB / University of Oxford
+% Aug/2013
+% http://brainder.org
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+% PALM -- Permutation Analysis of Linear Models
+% Copyright (C) 2015 Anderson M. Winkler
+% 
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% any later version.
+% 
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+% Note that for speed, there's no argument checking,
+% and some lines are repeated inside the conditions.
+
+if df1 > 1
+  
+  % G or F
+  df2 = bsxfun(@times,ones(size(G)),df2);
+  B = (df1.*G./df2)./(1+df1.*G./df2);
+  gcdf = betainc(B,df1/2,df2/2);
+
+elseif df1 == 1
+  
+  % Student's t, Aspin's v
+  df2 = bsxfun(@times,ones(size(G)),df2);
+  ic = df2 == 1;
+  in = df2 > 1e7;
+  ig = ~(ic|in);
+  gcdf = zeros(size(G));
+  if any(ig(:))
+    gcdf(ig) = betainc(1./(1+G(ig).^2./df2(ig)),df2(ig)/2,.5)/2;
+  end
+  ig = G > 0 & ig;
+  gcdf(ig) = 1 - gcdf(ig);
+  if any(ic(:))
+    gcdf(ic) = .5 + atan(G(ic))/pi;
+  end
+  if any(in(:))
+    gcdf(ic) = palm_gcdf(G(in),0);
+  end
+
+elseif df1 == 0
+  
+  % Normal distribution
+  gcdf = erfc(-G/sqrt(2))/2;
+  
+elseif df1 < 0
+  
+  % Chi^2, via lower Gamma incomplete for precision and speed
+  %df2 = bsxfun(@times,ones(size(G)),df2);
+  gcdf = gammainc(G/2,df2/2,'lower');
+  
+end
+
+%---------------------------------------------------------------
+% Copyright (C) 2012 Rik Wehbring
+% Copyright (C) 1995-2012 Kurt Hornik
+% Copyright (C) 2010 Christos Dimitrakakis
+%
+% This file is part of Octave.
+%
+% Octave is free software; you can redistribute it and/or modify it
+% under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 3 of the License, or (at
+% your option) any later version.
+%
+% Octave is distributed in the hope that it will be useful, but
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+% General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with Octave; see the file COPYING.  If not, see
+% <http://www.gnu.org/licenses/>.
+
+% -*- texinfo -*-
+% @deftypefn {Function File} {} betapdf (@var{x}, @var{a}, @var{b})
+% For each element of @var{x}, compute the probability density function (PDF)
+% at @var{x} of the Beta distribution with parameters @var{a} and @var{b}.
+% @end deftypefn
+
+% Author: KH <Kurt.Hornik@wu-wien.ac.at>, CD <christos.dimitrakakis@gmail.com>
+% Description: PDF of the Beta distribution
+
+function pdf = betapdf (x, a, b)
+
+if (nargin ~= 3)
+  print_usage ();
+end
+
+if (~isscalar (a) || ~isscalar (b))
+  [retval, x, a, b] = common_size (x, a, b);
+  if (retval > 0)
+    error ('betapdf: X, A, and B must be of common size or scalars');
+  end
+end
+
+if (iscomplex (x) || iscomplex (a) || iscomplex (b))
+  error ('betapdf: X, A, and B must not be complex');
+end
+
+if (isa (x, 'single') || isa (a, 'single') || isa (b, 'single'))
+  pdf = zeros (size (x), 'single');
+else
+  pdf = zeros (size (x));
+end
+
+k = ~(a > 0) | ~(b > 0) | isnan (x);
+pdf(k) = NaN;
+
+k = (x > 0) & (x < 1) & (a > 0) & (b > 0) & ((a ~= 1) | (b ~= 1));
+if (isscalar (a) && isscalar (b))
+  pdf(k) = exp ((a - 1) * log (x(k))...
+                + (b - 1) * log (1 - x(k))...
+                + lgamma (a + b) - lgamma (a) - lgamma (b));
+else
+  pdf(k) = exp ((a(k) - 1) .* log (x(k))...
+                + (b(k) - 1) .* log (1 - x(k))...
+                + lgamma (a(k) + b(k)) - lgamma (a(k)) - lgamma (b(k)));
+end
+
+% Most important special cases when the density is finite.
+k = (x == 0) & (a == 1) & (b > 0) & (b ~= 1);
+if (isscalar (a) && isscalar (b))
+  pdf(k) = exp (lgamma (a + b) - lgamma (a) - lgamma (b));
+else
+  pdf(k) = exp (lgamma (a(k) + b(k)) - lgamma (a(k)) - lgamma (b(k)));
+end
+
+k = (x == 1) & (b == 1) & (a > 0) & (a ~= 1);
+if (isscalar (a) && isscalar (b))
+  pdf(k) = exp (lgamma (a + b) - lgamma (a) - lgamma (b));
+else
+  pdf(k) = exp (lgamma (a(k) + b(k)) - lgamma (a(k)) - lgamma (b(k)));
+end
+
+k = (x >= 0) & (x <= 1) & (a == 1) & (b == 1);
+pdf(k) = 1;
+
+% Other special case when the density at the boundary is infinite.
+k = (x == 0) & (a < 1);
+pdf(k) = Inf;
+
+k = (x == 1) & (b < 1);
+pdf(k) = Inf;
+
+%---------------------------------------------------------------
+function [errorcode, varargout] = common_size (varargin)
+
+if (nargin < 2)
+  error ('common_size: only makes sense if nargin >= 2');
+end
+
+% Find scalar args.
+nscal = cellfun (@numel, varargin) ~= 1;
+
+i = find (nscal, 1);
+
+if (isempty (i))
+  errorcode = 0;
+  varargout = varargin;
+else
+  match = cellfun (@size_equal, varargin, repmat(varargin(i),size(varargin)));
+  if (any (nscal & ~match))
+    errorcode = 1;
+    varargout = varargin;
+  else
+    errorcode = 0;
+    if (nargout > 1)
+      scal = ~nscal;
+      varargout = varargin;
+      dims = size (varargin{i});
+      for s = find(scal)
+        varargout{s} = repmat(varargin{s}, dims);
+      end
+    end
+  end
+end
+
+%---------------------------------------------------------------
+% Copyright (C) 2012 Rik Wehbring
+% Copyright (C) 1995-2012 Kurt Hornik
+%
+% This file is part of Octave.
+%
+% Octave is free software; you can redistribute it and/or modify it
+% under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 3 of the License, or (at
+% your option) any later version.
+%
+% Octave is distributed in the hope that it will be useful, but
+% WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+% General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with Octave; see the file COPYING.  If not, see
+% <http://www.gnu.org/licenses/>.
+
+% -*- texinfo -*-
+% @deftypefn {Function File} {} betacdf (@var{x}, @var{a}, @var{b})
+% For each element of @var{x}, compute the cumulative distribution function
+% (CDF) at @var{x} of the Beta distribution with parameters @var{a} and
+% @var{b}.
+% @end deftypefn
+
+% Author: KH <Kurt.Hornik@wu-wien.ac.at>
+% Description: CDF of the Beta distribution
+
+function cdf = betacdf (x, a, b)
+
+if (nargin ~= 3)
+  print_usage ();
+end
+
+if (~isscalar (a) || ~isscalar (b))
+  [retval, x, a, b] = common_size (x, a, b);
+  if (retval > 0)
+    error ('betacdf: X, A, and B must be of common size or scalars');
+  end
+end
+
+if (iscomplex (x) || iscomplex (a) || iscomplex (b))
+  error ('betacdf: X, A, and B must not be complex');
+end
+
+if (isa (x, 'single') || isa (a, 'single') || isa (b, 'single'))
+  cdf = zeros (size (x), 'single');
+else
+  cdf = zeros (size (x));
+end
+
+k = isnan (x) | ~(a > 0) | ~(b > 0);
+cdf(k) = NaN;
+
+k = (x >= 1) & (a > 0) & (b > 0);
+cdf(k) = 1;
+
+k = (x > 0) & (x < 1) & (a > 0) & (b > 0);
+if (isscalar (a) && isscalar (b))
+  cdf(k) = betainc (x(k), a, b);
+else
+  cdf(k) = betainc (x(k), a(k), b(k));
+end
+
+%---------------------------------------------------------------
+function eq = size_equal(a,b)
+eq = isequal(size(a),size(b));
+
+%---------------------------------------------------------------
+function a = iscomplex(X)
+a = ~isreal(X);
+
+%---------------------------------------------------------------
+function varargout = lgamma(varargin)
+varargout{1:nargout} = gammaln(varargin{:});
+
+%---------------------------------------------------------------
+function mismatch = geometry_mismatch(V1, V2, dim_index)
+% SPM/NIfTI headers can differ by tiny floating-point roundoff although they
+% represent the same voxel grid. Keep exact dimension matching and accept up
+% to 1e-4 mm difference in world-space voxel placement.
+mat_tol = 1e-4;
+if any(V1.dim(dim_index) ~= V2.dim(dim_index))
+  mismatch = true;
+  return;
+end
+
+active = dim_index(:)';
+d = double(V1.dim(active));
+n_corner = 2^numel(active);
+corners = zeros(4, n_corner);
+for c = 0:(n_corner-1)
+  p = 0.5 * ones(1,4);
+  p(4) = 1;
+  for j = 1:numel(active)
+    if bitget(c, j)
+      p(active(j)) = d(j) + 0.5;
+    end
+  end
+  corners(:, c+1) = p';
+end
+xyz1 = V1.mat * corners;
+xyz2 = V2.mat * corners;
+max_disp = max(sqrt(sum((xyz1(1:3,:) - xyz2(1:3,:)).^2, 1)));
+mismatch = max_disp > mat_tol;
+
+function X = pinv2(A,tol)
+%PINV2   Pseudoinverse.
+%   X = PINV2(A) produces a matrix X of the same dimensions
+%   as A' so that A*X*A = A, X*A*X = X and A*X and X*A
+%   are Hermitian. The computation is based on SVD(A) and any
+%   singular values less than a tolerance are treated as zero.
+%
+%   PINV2(A,TOL) treats all singular values of A that are less than TOL as
+%   zero. By default, TOL = max(size(A)) * eps(norm(A)).
+%
+% This function is a modified version of pinv from Matlab but uses a faster
+% svdecon function from Vipin Vijayan.
+
+[U,S,V] = svdecon(A);
+s = diag(S);
+if nargin < 2 
+    tol = max(size(A)) * eps(norm(s,inf));
+end
+r1 = sum(s > tol)+1;
+V(:,r1:end) = [];
+U(:,r1:end) = [];
+s(r1:end) = [];
+s = 1./s(:);
+X = (V.*s.')*U';
+
+
+function [U,S,V] = svdecon(X)
+% Input:
+% X : m x n matrix
+%
+% Output:
+% X = U*S*V'
+%
+% Description:
+% Does equivalent to svd(X,'econ') but faster
+%
+% Vipin Vijayan (2014)
+
+[m,n] = size(X);
+if  m <= n
+    C = X*X';
+    [U,D] = eig(C);
+    clear C;
+    
+    [d,ix] = sort(abs(diag(D)),'descend');
+    U = U(:,ix);    
+    
+    if nargout > 2
+        V = X'*U;
+        s = sqrt(d);
+        V = bsxfun(@(x,c)x./c, V, s');
+        S = diag(s);
+    end
+else
+    C = X'*X; 
+    [V,D] = eig(C);
+    clear C;
+    
+    [d,ix] = sort(abs(diag(D)),'descend');
+    V = V(:,ix);    
+    
+    U = X*V; % convert evecs from X'*X to X*X'. the evals are the same.
+    %s = sqrt(sum(U.^2,1))';
+    s = sqrt(d);
+    U = bsxfun(@(x,c)x./c, U, s');
+    S = diag(s);
+end
