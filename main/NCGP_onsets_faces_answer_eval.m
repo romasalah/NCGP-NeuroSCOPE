@@ -1,35 +1,52 @@
 % =========================================================================
-% Duplicate of NCGP_onsets_faces, with trial-level behavioural accuracy.
+% Generate face-task GLM onsets with behavioural answer evaluation.
 %
-% For each behavioural .xlsx file:
-%   - Read the response-key mapping from thumbkeylist / middlekeylist
-%     (or their supported alias names).
-%   - Convert RawAnswer key presses to Yes / No in memory.
-%   - Compare them with ModelAnswer, producing AnswerEval = 1 or 0.
-%   - Append AnswerEval to the exported first-level GLM event table.
+% Duplicate of NCGP_onsets_faces. The original function is unchanged.
 %
-% Unanswered trials receive AnswerEval = 0. Source behavioural .xlsx files
-% are NEVER modified. This function does not change the downstream GLM
-% design: the existing first-level GLM currently uses trial_type, onset,
-% and duration, and ignores extra event-table columns.
+% Response mapping is determined INDEPENDENTLY for each behavioural file:
+%   thumbs_key (or a supported legacy column name) always means "Yes".
+%   If Yes = a, No = b; if Yes = b, No = a;
+%   if Yes = c, No = d; if Yes = d, No = c.
+%   The middle-finger-key column is not required.
+%
+% RawAnswer: Yes, No, or the literal string "NA" for missing, unreadable,
+%            or keys not belonging to the file's configured pair.
+% AnswerEval: 1 = correct, 0 = incorrect, NaN = not evaluable (NA response
+%             or invalid/missing ModelAnswer).
+%
+% The source behavioural spreadsheets are never modified. The output
+% events include trial_type, onset, duration, AnswerEval, RawAnswer and
+% ModelAnswer. Existing first-level GLMs ignore the three extra columns
+% unless their design code is explicitly changed to use them.
+%
+% Also produces a participant-by-session accuracy CSV and grouped bar
+% plot (PNG + editable MATLAB FIG), pooled over successfully read runs.
+% Accuracy denominator: valid, evaluable trials only; NA is excluded.
 % =========================================================================
 function facessessruns = NCGP_onsets_faces_answer_eval(wf)
 
 p = NCGP_paths(wf);
 
-% The provided run-order CSV has no header. Read its first row as data.
+% The supplied run-order CSV has no header. Preserve its first data row.
 scanorder = readtable(fullfile(p.pre, 'select_runorder_here.csv'), ...
     'ReadVariableNames', false, 'TextType', 'string');
-
 if width(scanorder) < 9
     error('NCGP:InvalidRunOrder', ...
         'Run-order CSV must contain at least nine columns.');
 end
 
-facessessruns = cell(numel(wf.sessions), numel(wf.hemis));
+nSessions = numel(wf.sessions);
+nHemis = numel(wf.hemis);
+nSubjects = numel(wf.subs);
 
-for hi = 1:numel(wf.hemis)
-    for sesi = 1:numel(wf.sessions)
+facessessruns = cell(nSessions, nHemis);
+nRuns = zeros(nSubjects, nSessions);
+nTrials = zeros(nSubjects, nSessions);
+nCorrect = zeros(nSubjects, nSessions);
+nValid = zeros(nSubjects, nSessions);
+
+for hi = 1:nHemis
+    for sesi = 1:nSessions
         curses = wf.sessions{sesi};
         switch curses
             case 'ses-02'
@@ -38,15 +55,16 @@ for hi = 1:numel(wf.hemis)
                 sesname = 'post';
             otherwise
                 error('NCGP:InvalidSession', ...
-                    'Unsupported faces session: %s', curses);
+                    'Unsupported face-task session: %s', curses);
         end
 
-        facessessruns{sesi, hi} = cell(numel(wf.subs), 1);
-        for subi = 1:numel(wf.subs)
+        facessessruns{sesi, hi} = cell(nSubjects, 1);
+        for subi = 1:nSubjects
             cursub = wf.subs{subi};
             submin = str2double(strrep(cursub, 'sub-', ''));
             if isnan(submin)
-                error('NCGP:InvalidSubject', 'Invalid subject ID: %s', cursub);
+                error('NCGP:InvalidSubject', ...
+                    'Invalid participant identifier: %s', cursub);
             end
 
             cursesdir = fullfile(p.presub{subi}, curses, 'func');
@@ -54,73 +72,90 @@ for hi = 1:numel(wf.hemis)
                 string(scanorder{:, 9}) == string(sesname);
             if nnz(matching) ~= 1
                 warning('NCGP:RunOrderMismatch', ...
-                    'Expected one run-order record for %s %s; found %d. Skipping.', ...
+                    'Expected one run-order record for %s %s, found %d. Skipping.', ...
                     cursub, sesname, nnz(matching));
                 facessessruns{sesi, hi}{subi} = cell(0, 2);
                 continue;
             end
 
             curorder = string(scanorder{matching, 2:7});
-            curordermin = erase(curorder, 'GN');
+            runNumbers = erase(curorder, 'GN');
             successRuns = cell(0, 2);
 
             for ri = 1:6
-                runNumber = char(curordermin(ri));
-                behaviouralName = sprintf('%d_fMRI_groupnback%s_results_%s.xlsx', ...
+                runNumber = char(runNumbers(ri));
+                behaviouralName = sprintf( ...
+                    '%d_fMRI_groupnback%s_results_%s.xlsx', ...
                     submin, runNumber, sesname);
                 behaviouralFile = fullfile(cursesdir, behaviouralName);
-                outputName = sprintf('%s_%s_task-%s_run-0%s_events.xlsx', ...
+                outputName = sprintf( ...
+                    '%s_%s_task-%s_run-0%s_events.xlsx', ...
                     cursub, curses, wf.task, runNumber);
                 outputFile = fullfile(cursesdir, outputName);
 
                 try
                     oldtbl = readtable(behaviouralFile);
-                    required = {'Person', 'PresentationTimes', 'RawAnswer', 'ModelAnswer'};
+                    required = {'Person', 'PresentationTimes', ...
+                        'RawAnswer', 'ModelAnswer'};
                     if ~all(ismember(required, oldtbl.Properties.VariableNames))
                         error('NCGP:MissingColumns', ...
-                            'Required columns are missing from %s.', behaviouralName);
+                            'Missing required behavioural columns in %s.', ...
+                            behaviouralName);
                     end
 
-                    % These key bindings are per file, not per trial.
-                    yesKey = getResponseKey(oldtbl, ...
-                        {'thumbkeylist', 'thumb_key', 'thumbkey'}, behaviouralName);
-                    noKey = getResponseKey(oldtbl, ...
-                        {'middlekeylist', 'middle_finger_key', ...
-                         'middlefingerkey', 'middle_key'}, behaviouralName);
-                    if yesKey == noKey
-                        error('NCGP:DuplicateResponseKeys', ...
-                            'Yes and No map to the same key in %s.', behaviouralName);
+                    % Determine Yes from the thumbs key; derive No from its
+                    % complementary key. Never require middlekeylist.
+                    yesKey = getThumbsKey(oldtbl, behaviouralName);
+                    switch yesKey
+                        case "a"
+                            noKey = "b";
+                        case "b"
+                            noKey = "a";
+                        case "c"
+                            noKey = "d";
+                        case "d"
+                            noKey = "c";
+                        otherwise
+                            error('NCGP:InvalidThumbsKey', ...
+                                'Unsupported Yes key in %s.', behaviouralName);
                     end
 
-                    % Convert the raw responses from d/c to Yes/No in memory.
-                    raw = lower(strtrim(string(oldtbl.RawAnswer)));
-                    raw(ismissing(raw)) = "";
-                    raw = regexprep(raw, '[^a-z]', '');
-                    raw(ismember(raw, ["nan", "none", "null", "missing"])) = "";
-                    unknown = raw ~= "" & raw ~= yesKey & raw ~= noKey;
-                    if any(unknown)
-                        error('NCGP:UnknownResponse', ...
-                            'Unrecognized RawAnswer key on row(s) %s in %s.', ...
-                            mat2str(find(unknown)' + 1), behaviouralName);
-                    end
-                    mappedRaw = strings(height(oldtbl), 1);
-                    mappedRaw(raw == yesKey) = "Yes";
-                    mappedRaw(raw == noKey) = "No";
-                    oldtbl.RawAnswer = mappedRaw;
+                    % Only a single valid key from the configured pair can
+                    % be interpreted as a response. Others become "NA".
+                    rawKeys = normalizeAnswerKeys(oldtbl.RawAnswer);
+                    mappedRaw = repmat("NA", height(oldtbl), 1);
+                    mappedRaw(rawKeys == yesKey) = "Yes";
+                    mappedRaw(rawKeys == noKey) = "No";
+                    oldtbl.RawAnswer = mappedRaw; % Change only in memory.
 
-                    expected = lower(strtrim(string(oldtbl.ModelAnswer)));
-                    expected(ismissing(expected)) = "";
-                    if any(~ismember(expected, ["yes", "no"]))
-                        error('NCGP:InvalidModelAnswer', ...
-                            'ModelAnswer must contain Yes or No in %s.', behaviouralName);
+                    model = lower(strtrim(string(oldtbl.ModelAnswer)));
+                    model(ismissing(model)) = "";
+                    validModel = ismember(model, ["yes", "no"]);
+                    modelOutput = repmat("NA", height(oldtbl), 1);
+                    modelOutput(model == "yes") = "Yes";
+                    modelOutput(model == "no") = "No";
+
+                    validAnswer = mappedRaw ~= "NA";
+                    evaluable = validAnswer & validModel;
+                    trialEval = nan(height(oldtbl), 1);
+                    trialEval(evaluable) = double( ...
+                        lower(mappedRaw(evaluable)) == model(evaluable));
+
+                    if any(~validModel)
+                        warning('NCGP:MissingModelAnswer', ...
+                            '%s has %d invalid ModelAnswer entries; marked NA.', ...
+                            behaviouralName, nnz(~validModel));
                     end
-                    answerEval = double(mappedRaw ~= "" & ...
-                        lower(mappedRaw) == expected);
+                    if any(~validAnswer)
+                        fprintf('%s: %d missing/unreadable responses marked NA.\n', ...
+                            behaviouralName, nnz(~validAnswer));
+                    end
 
                     trialTypes = string(oldtbl.Person);
                     if any(ismissing(trialTypes) | strlength(trialTypes) == 0)
                         error('NCGP:MissingIdentity', ...
-                            'A Person (face identity) is missing in %s.', behaviouralName);
+                            'A Person (face identity) is missing in %s.', ...
+                            behaviouralName);
                     end
                     if isnumeric(oldtbl.PresentationTimes)
                         onsets = double(oldtbl.PresentationTimes);
@@ -134,13 +169,16 @@ for hi = 1:numel(wf.hemis)
                     end
 
                     if wf.modelblackresponse
-                        % Copy accuracy to both events originating from a trial.
-                        ntrials = height(oldtbl);
-                        trial_type = strings(2 * ntrials, 1);
-                        onset = zeros(2 * ntrials, 1);
-                        duration = zeros(2 * ntrials, 1);
-                        AnswerEval = repelem(answerEval, 2);
-                        for i = 1:ntrials
+                        % Both events inherit their source trial's evaluation.
+                        n = height(oldtbl);
+                        trial_type = strings(2 * n, 1);
+                        onset = zeros(2 * n, 1);
+                        duration = zeros(2 * n, 1);
+                        AnswerEval = repelem(trialEval, 2);
+                        RawAnswer = repelem(mappedRaw, 2);
+                        ModelAnswer = repelem(modelOutput, 2);
+
+                        for i = 1:n
                             faceRow = 2 * i - 1;
                             blackRow = 2 * i;
                             trial_type(faceRow) = trialTypes(i) + "_Face";
@@ -149,7 +187,7 @@ for hi = 1:numel(wf.hemis)
 
                             trial_type(blackRow) = trialTypes(i) + "_BlackResponse";
                             onset(blackRow) = onsets(i) + 1.5;
-                            if i < ntrials
+                            if i < n
                                 duration(blackRow) = onsets(i + 1) - onset(blackRow);
                             else
                                 duration(blackRow) = 3.5;
@@ -157,24 +195,38 @@ for hi = 1:numel(wf.hemis)
                         end
                         if any(duration < 0)
                             error('NCGP:NegativeDuration', ...
-                                'Overlapping onsets cause negative durations in %s.', ...
+                                'Negative black-response duration in %s.', ...
                                 behaviouralName);
                         end
                     else
                         trial_type = trialTypes;
                         onset = onsets;
                         duration = 5 * ones(height(oldtbl), 1);
-                        AnswerEval = answerEval;
+                        AnswerEval = trialEval;
+                        RawAnswer = mappedRaw;
+                        ModelAnswer = modelOutput;
                     end
 
-                    newtbl = table(cellstr(trial_type), onset, duration, AnswerEval, ...
-                        'VariableNames', {'trial_type', 'onset', 'duration', 'AnswerEval'});
+                    newtbl = table(cellstr(trial_type), onset, duration, ...
+                        AnswerEval, RawAnswer, ModelAnswer, ...
+                        'VariableNames', {'trial_type', 'onset', 'duration', ...
+                                         'AnswerEval', 'RawAnswer', 'ModelAnswer'});
                     writetable(newtbl, outputFile);
                     successRuns(end + 1, :) = {curses, ['run-0' runNumber]}; %#ok<AGROW>
 
+                    % Count behavioural TRIALS exactly once, not once for
+                    % each hemisphere and not twice in split-event mode.
+                    if hi == 1
+                        nRuns(subi, sesi) = nRuns(subi, sesi) + 1;
+                        nTrials(subi, sesi) = nTrials(subi, sesi) + height(oldtbl);
+                        nValid(subi, sesi) = nValid(subi, sesi) + nnz(evaluable);
+                        nCorrect(subi, sesi) = nCorrect(subi, sesi) + ...
+                            nnz(trialEval == 1);
+                    end
+
                 catch ME
                     warning('NCGP:OnsetsFacesEvalSkippedRun', ...
-                        'Could not process %s (%s %s): %s', ...
+                        'Unable to process %s (%s %s): %s', ...
                         behaviouralName, cursub, curses, ME.message);
                 end
             end
@@ -182,28 +234,141 @@ for hi = 1:numel(wf.hemis)
         end
     end
 end
+
+% Report and visualize accuracy pooled over the successful runs of each
+% participant/session. Trials with NA evaluation are excluded.
+writeSubjectAccuracyFigures( ...
+    wf, p, nRuns, nTrials, nCorrect, nValid);
 end
 
-function key = getResponseKey(tbl, aliases, behaviouralName)
-% Accept direct keys (d/c) and serialized representations, e.g. ('d',).
-columnNames = string(tbl.Properties.VariableNames);
-columnIndex = find(ismember(lower(columnNames), lower(string(aliases))), 1);
-if isempty(columnIndex)
-    error('NCGP:MissingKeyColumn', ...
-        'Missing response-key column (%s) in %s.', ...
-        strjoin(aliases, ' / '), behaviouralName);
+function key = getThumbsKey(tbl, behaviouralName)
+% Support the new name plus the legacy PsychoPy key-column variants.
+aliases = ["thumbs_key", "thumb_key", "thumbkeylist", ...
+           "thumbskey", "thumbkey"];
+names = string(tbl.Properties.VariableNames);
+idx = find(ismember(lower(names), lower(aliases)), 1);
+if isempty(idx)
+    error('NCGP:MissingThumbsKey', ...
+        'Missing thumbs_key or supported alias in %s.', behaviouralName);
 end
 
-values = lower(strtrim(string(tbl.(char(columnNames(columnIndex))))));
-values(ismissing(values)) = "";
-values = regexprep(values, '[^a-z]', '');
-values(ismember(values, ["nan", "none", "null", "missing"])) = "";
-keys = unique(values(values ~= ""));
-
-if numel(keys) ~= 1 || ~ismember(keys, ["d", "c"])
-    error('NCGP:InvalidKeyMapping', ...
-        'Response-key column %s must specify exactly one key (d or c) in %s.', ...
-        char(columnNames(columnIndex)), behaviouralName);
+% Serialized PsychoPy values such as "('d',)" are interpreted as "d".
+tokens = normalizeAnswerKeys(tbl.(char(names(idx))));
+keys = unique(tokens(ismember(tokens, ["a", "b", "c", "d"])));
+invalidNonempty = tokens ~= "" & ~ismember(tokens, ["a", "b", "c", "d", ...
+    "na", "nan", "none", "null", "missing"]);
+if any(invalidNonempty) || numel(keys) ~= 1
+    error('NCGP:InvalidThumbsKey', ...
+        '%s must contain exactly one consistent a/b/c/d thumbs key.', ...
+        behaviouralName);
 end
 key = keys(1);
+end
+
+function keys = normalizeAnswerKeys(rawValues)
+% Convert case/spacing/serialized single-key representations to a/b/c/d.
+% Any other value will remain non-key and is subsequently treated as NA.
+keys = lower(strtrim(string(rawValues)));
+keys(ismissing(keys)) = "";
+keys = regexprep(keys, '[^a-z]', '');
+keys = keys(:);
+end
+
+function writeSubjectAccuracyFigures(wf, p, runs, trials, correct, valid)
+% Output one row per selected subject/session and one multi-subject figure.
+nSubjects = numel(wf.subs);
+nSessions = numel(wf.sessions);
+nRows = nSubjects * nSessions;
+
+subject = strings(nRows, 1);
+session = strings(nRows, 1);
+runsProcessed = zeros(nRows, 1);
+totalTrials = zeros(nRows, 1);
+correctAnswers = zeros(nRows, 1);
+incorrectAnswers = zeros(nRows, 1);
+naAnswers = zeros(nRows, 1);
+validAnswers = zeros(nRows, 1);
+accuracyPct = nan(nRows, 1);
+accuracyMatrix = nan(nSubjects, nSessions);
+
+k = 0;
+for subi = 1:nSubjects
+    for sesi = 1:nSessions
+        k = k + 1;
+        subject(k) = string(wf.subs{subi});
+        session(k) = string(wf.sessions{sesi});
+        runsProcessed(k) = runs(subi, sesi);
+        totalTrials(k) = trials(subi, sesi);
+        correctAnswers(k) = correct(subi, sesi);
+        validAnswers(k) = valid(subi, sesi);
+        incorrectAnswers(k) = valid(subi, sesi) - correct(subi, sesi);
+        naAnswers(k) = trials(subi, sesi) - valid(subi, sesi);
+        if valid(subi, sesi) > 0
+            accuracyMatrix(subi, sesi) = 100 * ...
+                correct(subi, sesi) / valid(subi, sesi);
+            accuracyPct(k) = accuracyMatrix(subi, sesi);
+        end
+    end
+end
+
+summary = table(subject, session, runsProcessed, totalTrials, ...
+    correctAnswers, incorrectAnswers, naAnswers, validAnswers, ...
+    accuracyPct, 'VariableNames', ...
+    {'subject', 'session', 'runsProcessed', 'totalTrials', ...
+     'correctAnswers', 'incorrectAnswers', 'naAnswers', ...
+     'validAnswers', 'accuracyPct'});
+
+outdir = fullfile(p.pre, 'faces_answer_evaluation');
+if ~exist(outdir, 'dir')
+    mkdir(outdir);
+end
+stem = ['task-' char(wf.task) '_accuracy_by_subject'];
+writetable(summary, fullfile(outdir, [stem '.csv']));
+
+if ~any(valid(:) > 0)
+    warning('NCGP:NoEvaluableTrials', ...
+        'No evaluable answers were found; summary CSV saved, no figure drawn.');
+    return;
+end
+
+fig = [];
+try
+    fig = figure('Visible', 'off', 'Color', 'w', ...
+        'Position', [100, 100, max(900, 65 * nSubjects), 550]);
+    ax = axes('Parent', fig);
+    bar(ax, accuracyMatrix, 'grouped');
+    ylim(ax, [0, 100]);
+    xlim(ax, [0.5, nSubjects + 0.5]);
+    xticks(ax, 1:nSubjects);
+    xticklabels(ax, wf.subs);
+    xtickangle(ax, 45);
+    ylabel(ax, 'Correct answers / evaluable answers (%)');
+    xlabel(ax, 'Participant');
+    title(ax, 'Face-task behavioural accuracy by participant');
+    grid(ax, 'on');
+
+    legendLabels = strings(1, nSessions);
+    for si = 1:nSessions
+        switch wf.sessions{si}
+            case 'ses-02'
+                legendLabels(si) = "Pre (ses-02)";
+            case 'ses-03'
+                legendLabels(si) = "Post (ses-03)";
+            otherwise
+                legendLabels(si) = string(wf.sessions{si});
+        end
+    end
+    legend(ax, cellstr(legendLabels), 'Location', 'bestoutside');
+
+    saveas(fig, fullfile(outdir, [stem '.png']));
+    savefig(fig, fullfile(outdir, [stem '.fig']));
+    close(fig);
+catch ME
+    if ~isempty(fig) && isgraphics(fig)
+        close(fig);
+    end
+    warning('NCGP:AccuracyFigureFailure', ...
+        'Accuracy summary CSV saved, but figure export failed: %s', ...
+        ME.message);
+end
 end
