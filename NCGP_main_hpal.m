@@ -22,7 +22,7 @@ if Step == 1
     % [conimgname,conimg_clustNum,spmdir]=NCGP_localiser_contrasts_hpal(wfloc1, loc_runs);
     %% GLM: Faces:
     % Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
-    [faces_runs]=NCGP_test_onsets_faces(wf1);
+    [faces_runs]=NCGP_onsets_faces_answer_eval(wf1);
     % Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
     NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
     %% #######  ALign localizer mask to sessions and extract ROIs  #######
