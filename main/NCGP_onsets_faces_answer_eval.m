@@ -11,8 +11,10 @@
 %
 % RawAnswer: Yes, No, or the literal string "NA" for missing, unreadable,
 %            or keys not belonging to the file's configured pair.
-% AnswerEval: 1 = correct, 0 = incorrect, NaN = not evaluable (NA response
-%             or invalid/missing ModelAnswer).
+% AnswerEval: 1 = correct, 0 = incorrect OR not evaluable (NA response
+%             or invalid/missing ModelAnswer). Numeric zeros can be used
+%             by downstream code to exclude all non-correct trials.
+% RawAnswer = "NA" retains the distinction between missing and incorrect.
 %
 % The source behavioural spreadsheets are never modified. The output
 % events include trial_type, onset, duration, AnswerEval, RawAnswer and
@@ -22,6 +24,7 @@
 % Also produces a participant-by-session accuracy CSV and grouped bar
 % plot (PNG + editable MATLAB FIG), pooled over successfully read runs.
 % Accuracy denominator: valid, evaluable trials only; NA is excluded.
+% This denominator is computed before mapping non-evaluable trials to zero.
 % =========================================================================
 function facessessruns = NCGP_onsets_faces_answer_eval(wf)
 
@@ -137,7 +140,9 @@ for hi = 1:nHemis
 
                     validAnswer = mappedRaw ~= "NA";
                     evaluable = validAnswer & validModel;
-                    trialEval = nan(height(oldtbl), 1);
+                    % Missing/unreadable responses must be numeric zero
+                    % in onset files so they can be censored downstream.
+                    trialEval = zeros(height(oldtbl), 1);
                     trialEval(evaluable) = double( ...
                         lower(mappedRaw(evaluable)) == model(evaluable));
 
@@ -236,7 +241,8 @@ for hi = 1:nHemis
 end
 
 % Report and visualize accuracy pooled over the successful runs of each
-% participant/session. Trials with NA evaluation are excluded.
+% participant/session. Non-evaluable responses are zero in AnswerEval,
+% but excluded from the accuracy denominator using evaluable trial counts.
 writeSubjectAccuracyFigures( ...
     wf, p, nRuns, nTrials, nCorrect, nValid);
 end
