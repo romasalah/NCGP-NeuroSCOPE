@@ -20,7 +20,6 @@ confnames1={'trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z',...
 confnames2={'X', 'Y', 'Z', 'RotX', 'RotY', 'RotZ',...
     'aCompCor00', 'aCompCor01', 'aCompCor02', 'aCompCor03', 'aCompCor04', 'aCompCor05'};
 confnameopts={confnames1, confnames2};
-confnames=confnameopts{1};
 hemis=wf.hemis;
 runscell_sesshemi=cell(Nses,length(wf.hemis));
 p=NCGP_paths(wf);
@@ -28,6 +27,7 @@ p=NCGP_paths(wf);
 if strcmp(wf.task,'faces')
     % Section: for-block starts
     for si=1:length(wf.sessions)
+        
         % Section: for-block starts
         for hi=1:length(wf.hemis)
             % Section: for-block starts
@@ -49,12 +49,17 @@ for si=1:Nses
         scanInput={};
         sessMultiFile={};
         sessMultiregFile={};
-        matlabbatch={};
+        
         sessionData={};
         regs={};
         % Section: for-block starts
         % Section: for-block starts
-        for subi=1:length(subs)
+        parfor (subi=1:length(subs), 2)
+            confnames=confnameopts{1};
+            matlabbatch={};
+            curcellruns = [];
+            cursession = '';
+            maskfn = '';
             % Section: if-block starts
             % Section: if-block starts
             if strcmp(wf.task,'faces')
@@ -70,7 +75,7 @@ for si=1:Nses
             % Section: for-block starts
             for runi = 1:length(curcellruns)
                 cursession= curcellruns{runi,1};
-                cursessdir= [p.hpal filesep subs{subi} filesep cursession filesep 'func' filesep];
+                cursessdir= [p.pre filesep subs{subi} filesep cursession filesep 'func' filesep];
                 currundir=[cursessdir filesep 'volumetric'];
                 % Get scans
                 fprintf('fMRI data folder: %s\n',currundir)
@@ -113,7 +118,12 @@ for si=1:Nses
                     confnames=confnameopts{2};
                     keep_cols = ismember(header, confnames);
                 end
-                conf_selected = confall(2:end, keep_cols);
+                conf_selected = confall(wf.volskip+2:end, keep_cols);
+                assert(size(conf_selected,1) == numel(scans), ...
+                    'Mismatch between nuisance rows and fMRI scans.');
+
+                assert(all(isfinite(conf_selected(:))), ...
+                    'Nuisance regressors contain NaN or Inf.');
                 conf_selected=array2table(conf_selected, 'VariableNames', confnames);
                 writetable(conf_selected, minregfn, 'WriteVariableNames', false, 'Delimiter', '\t');
                 % Get Onsets
@@ -180,9 +190,10 @@ for si=1:Nses
             matlabbatch{2}.spm_skip_maskthreshold=1;
            
             try mkdir(spmmatdir); end
-            save([spmmatdir '/matlabbatch'],'matlabbatch')
+            %save([spmmatdir '/matlabbatch'],'matlabbatch')
             
             spm_jobman( 'run', matlabbatch );
+            compress_spm_residuals(spmmatdir, false, 0)
         end
     end
     % estimate model
