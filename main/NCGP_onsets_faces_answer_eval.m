@@ -16,11 +16,11 @@
 %             by downstream code to exclude all non-correct trials.
 % RawAnswer = "NA" retains the distinction between missing and incorrect.
 %
-% Source behavioural spreadsheets and original *_events.xlsx files remain
-% unchanged. Additional *_events_nbackans.xlsx copies contain a
+% Source behavioural spreadsheets remain unchanged. Existing
+% *_events.xlsx files are updated in place to include a
 % GroupNBackModelAnswer column computed from consecutive Face filenames.
-% The first trial of each run is NA. Existing first-level GLMs still read
-% the original event files unless explicitly reconfigured.
+% The first trial of each run is NA and is excluded from answer scoring.
+% Existing first-level GLMs ignore the additional column unless changed.
 %
 % Also produces a participant-by-session accuracy CSV and grouped bar
 % plot (PNG + editable MATLAB FIG), pooled over successfully read runs.
@@ -35,7 +35,7 @@ p = NCGP_paths(wf);
 % Preprocess existing face-event files for the selected pre/post sessions.
 % Use Face filenames from the matching behavioural XLSX, because generated
 % events contain trial_type but do not include the original Face column.
-% Save a separate *_events_nbackans.xlsx, leaving source files unchanged.
+% Update the existing *_events.xlsx in place; no suffixed copy is made.
 % =========================================================================
 for sesiNback = 1:numel(wf.sessions)
     selectedSession = wf.sessions{sesiNback};
@@ -79,7 +79,7 @@ for sesiNback = 1:numel(wf.sessions)
             eventFile = fullfile(eventDir, eventName);
 
             try
-                writeGroupNBackEventCopy(eventFile, behaviouralFile);
+                addGroupNBackAnswerToEventFile(eventFile, behaviouralFile);
             catch ME
                 warning('NCGP:ExistingNBackAnswerExportFailed', ...
                     'Unable to export 1-back answers for %s: %s', ...
@@ -198,21 +198,26 @@ for hi = 1:nHemis
                     modelOutput(model == "no") = "No";
 
                     validAnswer = mappedRaw ~= "NA";
-                    evaluable = validAnswer & validModel;
+                    % One-back responses start at trial 2. Trial 1 has
+                    % no predecessor and is neither scored nor warned on.
+                    expectedResponse = (1:height(oldtbl))' > 1;
+                    evaluable = validAnswer & validModel & expectedResponse;
                     % Missing/unreadable responses must be numeric zero
                     % in onset files so they can be censored downstream.
                     trialEval = zeros(height(oldtbl), 1);
                     trialEval(evaluable) = double( ...
                         lower(mappedRaw(evaluable)) == model(evaluable));
 
-                    if any(~validModel)
+                    missingModels = expectedResponse & ~validModel;
+                    missingResponses = expectedResponse & ~validAnswer;
+                    if any(missingModels)
                         warning('NCGP:MissingModelAnswer', ...
                             '%s has %d invalid ModelAnswer entries; marked NA.', ...
-                            behaviouralName, nnz(~validModel));
+                            behaviouralName, nnz(missingModels));
                     end
-                    if any(~validAnswer)
+                    if any(missingResponses)
                         fprintf('%s: %d missing/unreadable responses marked NA.\n', ...
-                            behaviouralName, nnz(~validAnswer));
+                            behaviouralName, nnz(missingResponses));
                     end
 
                     trialTypes = string(oldtbl.Person);
@@ -277,10 +282,10 @@ for hi = 1:nHemis
                                          'AnswerEval', 'RawAnswer', 'ModelAnswer'});
                     writetable(newtbl, outputFile);
 
-                    % Also export from freshly generated event files so a
-                    % clean first run creates the N-back copies immediately.
+                    % Also update freshly generated event files so a
+                    % clean first run includes GroupNBackModelAnswer.
                     try
-                        writeGroupNBackEventCopy(outputFile, behaviouralFile);
+                        addGroupNBackAnswerToEventFile(outputFile, behaviouralFile);
                     catch nbackME
                         warning('NCGP:NBackAnswerExportFailed', ...
                             'Unable to export 1-back answers for %s: %s', ...
@@ -316,10 +321,10 @@ writeSubjectAccuracyFigures( ...
     wf, p, nRuns, nTrials, nCorrect, nValid);
 end
 
-function writeGroupNBackEventCopy(eventFile, behaviouralFile)
-% Add GroupNBackModelAnswer to a COPY of the event workbook.
+function addGroupNBackAnswerToEventFile(eventFile, behaviouralFile)
+% Add GroupNBackModelAnswer to the original event workbook in place.
 % Compare the AH/NAT prefix of successive Face image filenames.
-% The first trial has no previous face and is assigned "NA".
+% The first trial has no previous face: it gets "NA", without warning.
 % ModelAnswer, RawAnswer and AnswerEval remain unchanged.
 
 behaviour = readtable(behaviouralFile, 'TextType', 'string');
@@ -393,9 +398,7 @@ if splitEvents
     groupAnswer = repelem(groupAnswer, 2);
 end
 events.GroupNBackModelAnswer = groupAnswer;
-[eventFolder, eventStem] = fileparts(eventFile);
-exportFile = fullfile(eventFolder, [eventStem '_nbackans.xlsx']);
-writetable(events, exportFile);
+writetable(events, eventFile);
 end
 
 function key = getThumbsKey(tbl, behaviouralName)
