@@ -30,12 +30,13 @@ if nTrials == 0
 end
 
 % Extract the AH or NAT group from each face-image filename. Use the
-% GN1-GN6 filename pattern, preserving strict group/identity and image type.
+% Identify face group; ignore ALL characters after "_groupnback",
+% including run, image-state, file extension or any other suffix.
 prefix = strings(nTrials, 1);
 for trial = 1:nTrials
     imageText = char(string(behaviour.Face(trial)));
     imageMatch = regexp(imageText, ...
-        '(AH|NAT)[1-4]_groupnback[1-6][01]\.png', ...
+        '(AH|NAT)[1-4]_groupnback', ...
         'tokens', 'once', 'ignorecase');
     if isempty(imageMatch)
         error('NCGP:UnrecognizedNBackFace', ...
