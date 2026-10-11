@@ -24,13 +24,10 @@ if ~istable(behaviour) || ~ismember('Face', behaviour.Properties.VariableNames)
 end
 
 nTrials = height(behaviour);
-if nTrials == 0
-    error('NCGP:EmptyNBackSource', ...
-        'No face presentations found in the behavioural table.');
-end
+% An empty table returns an empty answer column without raising an error.
 
-% Extract the AH or NAT group from each face-image filename. Use the
-% Identify face group; ignore ALL characters after "_groupnback",
+% Extract the AH or NAT group from each face-image filename.
+% Ignore ALL characters after "_groupnback",
 % including run, image-state, file extension or any other suffix.
 prefix = strings(nTrials, 1);
 for trial = 1:nTrials
