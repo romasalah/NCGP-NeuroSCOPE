@@ -474,7 +474,16 @@ names = {'subject', 'session', 'run', 'sourceFile', 'outputFile', ...
     'status', 'totalTrials', 'validAnswers', 'correctAnswers', ...
     'incorrectAnswers', 'invalidAnswers', 'unexpectedInvalidAnswers', ...
     'censoredTrials', 'accuracyPct', 'errorID', 'details'};
-files = cell2table(fileAudit, 'VariableNames', names);
+% Build a typed table: text columns are strings and count columns
+% are numeric doubles (including NaN for failed or unreadable files).
+% Mixed-type cell variables are not reliably writable with writetable.
+strCol = @(i) string(fileAudit(:, i));
+numCol = @(i) cellfun(@double, fileAudit(:, i));
+files = table( ...
+    strCol(1), strCol(2), strCol(3), strCol(4), strCol(5), ...
+    strCol(6), numCol(7), numCol(8), numCol(9), numCol(10), ...
+    numCol(11), numCol(12), numCol(13), numCol(14), ...
+    strCol(15), strCol(16), 'VariableNames', names);
 
 bad = ~strcmp(string(files.status), "processed");
 problems = files(bad, :);
@@ -533,8 +542,8 @@ allProcessed = sum(runs(:));
 allFailed = nnz(string(files.status) == "failed");
 allRunOrderProblems = nnz(string(files.status) == "run_order_error");
 allProblemRecords = height(problems);
-allUnexpectedInvalid = sum(cell2mat(files.unexpectedInvalidAnswers( ...
-    strcmp(string(files.status), "processed_with_invalid_answers"))));
+allUnexpectedInvalid = sum(files.unexpectedInvalidAnswers( ...
+    files.status == "processed_with_invalid_answers"));
 allAccuracy = NaN;
 if allValid > 0
     allAccuracy = 100 * allCorrect / allValid;
@@ -570,25 +579,25 @@ if fid < 0
     warning('NCGP:QCTextReportFailure', ...
         'Could not write quality report text file: %s', txtpath);
 else
-    fprintf(fid, 'Face task answer-quality report\\n');
-    fprintf(fid, '==============================\\n');
-    fprintf(fid, 'Expected run files: %d\\n', 6*nSubjects*nSessions);
-    fprintf(fid, 'Processed run files: %d\\n', allProcessed);
-    fprintf(fid, 'Failed run files: %d\\n', allFailed);
-    fprintf(fid, 'Run-order problems: %d\\n', allRunOrderProblems);
-    fprintf(fid, 'Problem records: %d\\n', allProblemRecords);
-    fprintf(fid, 'Trials in processed files: %d\\n', allTrials);
-    fprintf(fid, 'Valid/evaluable answers: %d\\n', allValid);
-    fprintf(fid, 'Correct answers: %d\\n', allCorrect);
-    fprintf(fid, 'Incorrect but evaluable answers: %d\\n', allValid - allCorrect);
-    fprintf(fid, 'Invalid/NA answers (including first trial): %d\\n', allTrials - allValid);
-    fprintf(fid, 'Unexpected invalid answers beyond first trial: %d\\n', ...
+    fprintf(fid, 'Face task answer-quality report\n');
+    fprintf(fid, '==============================\n');
+    fprintf(fid, 'Expected run files: %d\n', 6*nSubjects*nSessions);
+    fprintf(fid, 'Processed run files: %d\n', allProcessed);
+    fprintf(fid, 'Failed run files: %d\n', allFailed);
+    fprintf(fid, 'Run-order problems: %d\n', allRunOrderProblems);
+    fprintf(fid, 'Problem records: %d\n', allProblemRecords);
+    fprintf(fid, 'Trials in processed files: %d\n', allTrials);
+    fprintf(fid, 'Valid/evaluable answers: %d\n', allValid);
+    fprintf(fid, 'Correct answers: %d\n', allCorrect);
+    fprintf(fid, 'Incorrect but evaluable answers: %d\n', allValid - allCorrect);
+    fprintf(fid, 'Invalid/NA answers (including first trial): %d\n', allTrials - allValid);
+    fprintf(fid, 'Unexpected invalid answers beyond first trial: %d\n', ...
         allUnexpectedInvalid);
-    fprintf(fid, 'Censored trials (AnswerEval=0): %d\\n', allTrials - allCorrect);
-    fprintf(fid, 'Accuracy among evaluable answers: %.2f%%\\n', allAccuracy);
-    fprintf(fid, '\\nProblematic source files and reasons:\\n');
+    fprintf(fid, 'Censored trials (AnswerEval=0): %d\n', allTrials - allCorrect);
+    fprintf(fid, 'Accuracy among evaluable answers: %.2f%%\n', allAccuracy);
+    fprintf(fid, '\nProblematic source files and reasons:\n');
     for i = 1:height(problems)
-        fprintf(fid, '%s %s %s | %s | %s | %s\\n', ...
+        fprintf(fid, '%s %s %s | %s | %s | %s\n', ...
             char(string(problems.subject(i))), ...
             char(string(problems.session(i))), ...
             char(string(problems.run(i))), ...
@@ -598,6 +607,6 @@ else
     end
     fclose(fid);
 end
-fprintf('Faces answer QC: %d processed, %d failed, %d evaluable, %d invalid/NA, %d correct.\\n', ...
+fprintf('Faces answer QC: %d processed, %d failed, %d evaluable, %d invalid/NA, %d correct.\n', ...
     allProcessed, allFailed, allValid, allTrials - allValid, allCorrect);
 end
