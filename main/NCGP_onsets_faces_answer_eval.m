@@ -12,15 +12,16 @@
 % RawAnswer: Yes, No, or the literal string "NA" for missing, unreadable,
 %            or keys not belonging to the file's configured pair.
 % AnswerEval: 1 = correct, 0 = incorrect OR not evaluable (NA response
-%             or invalid/missing ModelAnswer). Numeric zeros can be used
+%             or invalid/missing GroupNBackModelAnswer). Zero can be used
 %             by downstream code to exclude all non-correct trials.
 % RawAnswer = "NA" retains the distinction between missing and incorrect.
 %
-% Source behavioural spreadsheets remain unchanged. Existing
-% *_events.xlsx files are updated in place to include a
-% GroupNBackModelAnswer column computed from consecutive Face filenames.
-% The first trial of each run is NA and is excluded from answer scoring.
-% Existing first-level GLMs ignore the additional column unless changed.
+% Source behavioural spreadsheets remain unchanged. Each behavioural
+% file's Face values are passed to NCGP_groupnback_model_answers to obtain
+% the expected GroupNBackModelAnswer column IN MEMORY. The first trial
+% is NA and excluded from answer scoring. The final events file is written
+% only ONCE, including GroupNBackModelAnswer and AnswerEval.
+% Existing first-level GLMs ignore extra columns unless changed.
 %
 % Also produces a participant-by-session accuracy CSV and grouped bar
 % plot (PNG + editable MATLAB FIG), pooled over successfully read runs.
@@ -30,64 +31,6 @@
 function facessessruns = NCGP_onsets_faces_answer_eval(wf)
 
 p = NCGP_paths(wf);
-
-% =========================================================================
-% Preprocess existing face-event files for the selected pre/post sessions.
-% Use Face filenames from the matching behavioural XLSX, because generated
-% events contain trial_type but do not include the original Face column.
-% Update the existing *_events.xlsx in place; no suffixed copy is made.
-% =========================================================================
-for sesiNback = 1:numel(wf.sessions)
-    selectedSession = wf.sessions{sesiNback};
-    switch selectedSession
-        case 'ses-02'
-            selectedSessionName = 'pre';
-        case 'ses-03'
-            selectedSessionName = 'post';
-        otherwise
-            error('NCGP:InvalidSession', ...
-                'Unsupported face-task session: %s', selectedSession);
-    end
-
-    for subiNback = 1:numel(wf.subs)
-        selectedSubject = wf.subs{subiNback};
-        subjectNumber = str2double(erase(string(selectedSubject), 'sub-'));
-        if ~isfinite(subjectNumber)
-            error('NCGP:InvalidSubject', ...
-                'Invalid participant identifier: %s', selectedSubject);
-        end
-
-        eventDir = fullfile(p.presub{subiNback}, selectedSession, 'func');
-        eventPattern = sprintf('%s_%s_task-%s_run-*_events.xlsx', ...
-            selectedSubject, selectedSession, wf.task);
-        existingEventFiles = dir(fullfile(eventDir, eventPattern));
-
-        for eventIndex = 1:numel(existingEventFiles)
-            eventName = existingEventFiles(eventIndex).name;
-            runToken = regexp(eventName, ...
-                '_run-0*([1-6])_events\.xlsx$', 'tokens', 'once');
-            if isempty(runToken)
-                warning('NCGP:InvalidNBackEventFilename', ...
-                    'Unrecognized event filename: %s', eventName);
-                continue;
-            end
-            runNumber = str2double(runToken{1});
-            behaviouralName = sprintf( ...
-                '%d_fMRI_groupnback%d_results_%s.xlsx', ...
-                subjectNumber, runNumber, selectedSessionName);
-            behaviouralFile = fullfile(eventDir, behaviouralName);
-            eventFile = fullfile(eventDir, eventName);
-
-            try
-                addGroupNBackAnswerToEventFile(eventFile, behaviouralFile);
-            catch ME
-                warning('NCGP:ExistingNBackAnswerExportFailed', ...
-                    'Unable to export 1-back answers for %s: %s', ...
-                    eventName, ME.message);
-            end
-        end
-    end
-end
 
 % The supplied run-order CSV has no header. Preserve its first data row.
 scanorder = readtable(fullfile(p.pre, 'select_runorder_here.csv'), ...
@@ -158,12 +101,18 @@ for hi = 1:nHemis
                 try
                     oldtbl = readtable(behaviouralFile);
                     required = {'Person', 'PresentationTimes', ...
-                        'RawAnswer', 'ModelAnswer'};
+                        'RawAnswer', 'Face'};
                     if ~all(ismember(required, oldtbl.Properties.VariableNames))
                         error('NCGP:MissingColumns', ...
                             'Missing required behavioural columns in %s.', ...
                             behaviouralName);
                     end
+
+                    % Calculate the real group 1-back expected answers
+                    % directly from this behavioural source in memory.
+                    % This helper never accesses or writes event files.
+                    oldtbl.GroupNBackModelAnswer = ...
+                        NCGP_groupnback_model_answers(oldtbl);
 
                     % Determine Yes from the thumbs key; derive No from its
                     % complementary key. Never require middlekeylist.
@@ -190,7 +139,7 @@ for hi = 1:nHemis
                     mappedRaw(rawKeys == noKey) = "No";
                     oldtbl.RawAnswer = mappedRaw; % Change only in memory.
 
-                    model = lower(strtrim(string(oldtbl.ModelAnswer)));
+                    model = lower(strtrim(string(oldtbl.GroupNBackModelAnswer)));
                     model(ismissing(model)) = "";
                     validModel = ismember(model, ["yes", "no"]);
                     modelOutput = repmat("NA", height(oldtbl), 1);
@@ -212,7 +161,7 @@ for hi = 1:nHemis
                     missingResponses = expectedResponse & ~validAnswer;
                     if any(missingModels)
                         warning('NCGP:MissingModelAnswer', ...
-                            '%s has %d invalid ModelAnswer entries; marked NA.', ...
+                            '%s has %d invalid GroupNBackModelAnswer entries; marked NA.', ...
                             behaviouralName, nnz(missingModels));
                     end
                     if any(missingResponses)
@@ -245,7 +194,7 @@ for hi = 1:nHemis
                         duration = zeros(2 * n, 1);
                         AnswerEval = repelem(trialEval, 2);
                         RawAnswer = repelem(mappedRaw, 2);
-                        ModelAnswer = repelem(modelOutput, 2);
+                        GroupNBackModelAnswer = repelem(modelOutput, 2);
 
                         for i = 1:n
                             faceRow = 2 * i - 1;
@@ -273,24 +222,15 @@ for hi = 1:nHemis
                         duration = 5 * ones(height(oldtbl), 1);
                         AnswerEval = trialEval;
                         RawAnswer = mappedRaw;
-                        ModelAnswer = modelOutput;
+                        GroupNBackModelAnswer = modelOutput;
                     end
 
                     newtbl = table(cellstr(trial_type), onset, duration, ...
-                        AnswerEval, RawAnswer, ModelAnswer, ...
+                        AnswerEval, RawAnswer, GroupNBackModelAnswer, ...
                         'VariableNames', {'trial_type', 'onset', 'duration', ...
-                                         'AnswerEval', 'RawAnswer', 'ModelAnswer'});
+                                         'AnswerEval', 'RawAnswer', 'GroupNBackModelAnswer'});
                     writetable(newtbl, outputFile);
 
-                    % Also update freshly generated event files so a
-                    % clean first run includes GroupNBackModelAnswer.
-                    try
-                        addGroupNBackAnswerToEventFile(outputFile, behaviouralFile);
-                    catch nbackME
-                        warning('NCGP:NBackAnswerExportFailed', ...
-                            'Unable to export 1-back answers for %s: %s', ...
-                            outputName, nbackME.message);
-                    end
                     successRuns(end + 1, :) = {curses, ['run-0' runNumber]}; %#ok<AGROW>
 
                     % Count behavioural TRIALS exactly once, not once for
@@ -319,86 +259,6 @@ end
 % but excluded from the accuracy denominator using evaluable trial counts.
 writeSubjectAccuracyFigures( ...
     wf, p, nRuns, nTrials, nCorrect, nValid);
-end
-
-function addGroupNBackAnswerToEventFile(eventFile, behaviouralFile)
-% Add GroupNBackModelAnswer to the original event workbook in place.
-% Compare the AH/NAT prefix of successive Face image filenames.
-% The first trial has no previous face: it gets "NA", without warning.
-% ModelAnswer, RawAnswer and AnswerEval remain unchanged.
-
-behaviour = readtable(behaviouralFile, 'TextType', 'string');
-events = readtable(eventFile, 'TextType', 'string');
-requiredBehaviour = {'Face', 'Person', 'PresentationTimes'};
-requiredEvents = {'trial_type', 'onset'};
-if ~all(ismember(requiredBehaviour, behaviour.Properties.VariableNames))
-    error('NCGP:MissingNBackSourceColumns', ...
-        'Face, Person or PresentationTimes missing in %s.', behaviouralFile);
-end
-if ~all(ismember(requiredEvents, events.Properties.VariableNames))
-    error('NCGP:MissingNBackEventColumns', ...
-        'trial_type or onset missing in %s.', eventFile);
-end
-
-nTrials = height(behaviour);
-if nTrials == 0
-    error('NCGP:EmptyNBackSource', ...
-        'No face presentations found in %s.', behaviouralFile);
-end
-
-% One event per face or two events (face plus response screen) per trial.
-if height(events) == nTrials
-    trialRows = (1:nTrials)';
-    expectedTypes = string(behaviour.Person);
-    splitEvents = false;
-elseif height(events) == 2 * nTrials
-    trialRows = (1:2:(2 * nTrials))';
-    expectedTypes = string(behaviour.Person) + "_Face";
-    splitEvents = true;
-else
-    error('NCGP:NBackTrialCountMismatch', ...
-        'Event row count does not match trials in %s.', behaviouralFile);
-end
-
-% Protect against associating an event file with the wrong behavioural run.
-actualTypes = string(events.trial_type(trialRows));
-behaviourOnsets = str2double(string(behaviour.PresentationTimes));
-eventOnsets = str2double(string(events.onset(trialRows)));
-if ~isequal(actualTypes(:), expectedTypes(:)) || ...
-        any(~isfinite(behaviourOnsets)) || any(~isfinite(eventOnsets)) || ...
-        any(abs(behaviourOnsets(:) - eventOnsets(:)) > 0.02)
-    error('NCGP:NBackEventAlignmentMismatch', ...
-        'Face identities or onset times do not align for %s.', eventFile);
-end
-
-prefix = strings(nTrials, 1);
-for trial = 1:nTrials
-    imageText = char(string(behaviour.Face(trial)));
-    imageMatch = regexp(imageText, ...
-        '(AH|NAT)[1-4]_groupnback1[01]\.png', ...
-        'tokens', 'once', 'ignorecase');
-    if isempty(imageMatch)
-        error('NCGP:UnrecognizedNBackFace', ...
-            'Unrecognized face image in %s at trial %d: %s', ...
-            behaviouralFile, trial, imageText);
-    end
-    prefix(trial) = upper(string(imageMatch{1}));
-end
-
-groupAnswer = repmat("NA", nTrials, 1);
-for trial = 2:nTrials
-    if prefix(trial) == prefix(trial - 1)
-        groupAnswer(trial) = "Yes";
-    else
-        groupAnswer(trial) = "No";
-    end
-end
-
-if splitEvents
-    groupAnswer = repelem(groupAnswer, 2);
-end
-events.GroupNBackModelAnswer = groupAnswer;
-writetable(events, eventFile);
 end
 
 function key = getThumbsKey(tbl, behaviouralName)
