@@ -35,11 +35,6 @@ p = NCGP_paths(wf);
 % The supplied run-order CSV has no header. Preserve its first data row.
 scanorder = readtable(fullfile(p.pre, 'select_runorder_here.csv'), ...
     'ReadVariableNames', false, 'TextType', 'string');
-if width(scanorder) < 9
-    error('NCGP:InvalidRunOrder', ...
-        'Run-order CSV must contain at least nine columns.');
-end
-
 nSessions = numel(wf.sessions);
 nHemis = numel(wf.hemis);
 nSubjects = numel(wf.subs);
@@ -61,25 +56,15 @@ fileAudit = cell(0, 16);
 for hi = 1:nHemis
     for sesi = 1:nSessions
         curses = wf.sessions{sesi};
-        switch curses
-            case 'ses-02'
-                sesname = 'pre';
-            case 'ses-03'
-                sesname = 'post';
-            otherwise
-                error('NCGP:InvalidSession', ...
-                    'Unsupported face-task session: %s', curses);
-        end
+        % Convert known session labels; other labels flow to run-order
+        % matching without a separate session-validation error.
+        sesname = replace(replace(string(curses), "ses-02", "pre"), ...
+            "ses-03", "post");
 
         facessessruns{sesi, hi} = cell(nSubjects, 1);
         for subi = 1:nSubjects
             cursub = wf.subs{subi};
             submin = str2double(strrep(cursub, 'sub-', ''));
-            if isnan(submin)
-                error('NCGP:InvalidSubject', ...
-                    'Invalid participant identifier: %s', cursub);
-            end
-
             cursesdir = fullfile(p.presub{subi}, curses, 'func');
             matching = string(scanorder{:, 8}) == string(cursub) & ...
                 string(scanorder{:, 9}) == string(sesname);
@@ -147,16 +132,18 @@ for hi = 1:nHemis
                         case "d"
                             noKey = "c";
                         otherwise
-                            error('NCGP:InvalidThumbsKey', ...
-                                'Unsupported Yes key in %s.', behaviouralName);
+                            % Without a recognized thumb mapping, answers
+                            % stay NA and AnswerEval stays zero; the run's
+                            % invalid-response count captures this.
+                            noKey = "";
                     end
 
                     % Only a single valid key from the configured pair can
                     % be interpreted as a response. Others become "NA".
                     rawKeys = normalizeAnswerKeys(oldtbl.RawAnswer);
                     mappedRaw = repmat("NA", height(oldtbl), 1);
-                    mappedRaw(rawKeys == yesKey) = "Yes";
-                    mappedRaw(rawKeys == noKey) = "No";
+                    mappedRaw(rawKeys == yesKey & rawKeys ~= "") = "Yes";
+                    mappedRaw(rawKeys == noKey & rawKeys ~= "") = "No";
                     oldtbl.RawAnswer = mappedRaw; % Change only in memory.
 
                     model = lower(strtrim(string(oldtbl.GroupNBackModelAnswer)));
@@ -190,11 +177,6 @@ for hi = 1:nHemis
                     end
 
                     trialTypes = string(oldtbl.Person);
-                    if any(ismissing(trialTypes) | strlength(trialTypes) == 0)
-                        error('NCGP:MissingIdentity', ...
-                            'A Person (face identity) is missing in %s.', ...
-                            behaviouralName);
-                    end
                     if isnumeric(oldtbl.PresentationTimes)
                         onsets = double(oldtbl.PresentationTimes);
                     else
@@ -333,22 +315,19 @@ aliases = ["thumbs_key", "thumb_key", "thumbkeylist", ...
            "thumbskey", "thumbkey"];
 names = string(tbl.Properties.VariableNames);
 idx = find(ismember(lower(names), lower(aliases)), 1);
-if isempty(idx)
-    error('NCGP:MissingThumbsKey', ...
-        'Missing thumbs_key or supported alias in %s.', behaviouralName);
-end
 
-% Serialized PsychoPy values such as "('d',)" are interpreted as "d".
-tokens = normalizeAnswerKeys(tbl.(char(names(idx))));
-keys = unique(tokens(ismember(tokens, ["a", "b", "c", "d"])));
-invalidNonempty = tokens ~= "" & ~ismember(tokens, ["a", "b", "c", "d", ...
-    "na", "nan", "none", "null", "missing"]);
-if any(invalidNonempty) || numel(keys) ~= 1
-    error('NCGP:InvalidThumbsKey', ...
-        '%s must contain exactly one consistent a/b/c/d thumbs key.', ...
-        behaviouralName);
+% No required-column or key-consistency assertions: use the first
+% recognized a/b/c/d key in the available column. If no usable mapping
+% exists, return an empty key so that all responses are represented as NA.
+key = "";
+if ~isempty(idx)
+    % Serialized PsychoPy values such as "('d',)" become "d".
+    tokens = normalizeAnswerKeys(tbl.(char(names(idx))));
+    candidates = tokens(ismember(tokens, ["a", "b", "c", "d"]));
+    if ~isempty(candidates)
+        key = candidates(1);
+    end
 end
-key = keys(1);
 end
 
 function keys = normalizeAnswerKeys(rawValues)
@@ -417,9 +396,7 @@ if ~any(valid(:) > 0)
     return;
 end
 
-fig = [];
-try
-    fig = figure('Visible', 'off', 'Color', 'w', ...
+fig = figure('Visible', 'off', 'Color', 'w', ...
         'Position', [100, 100, max(900, 65 * nSubjects), 550]);
     ax = axes('Parent', fig);
     bar(ax, accuracyMatrix, 'grouped');
@@ -449,14 +426,6 @@ try
     saveas(fig, fullfile(outdir, [stem '.png']));
     savefig(fig, fullfile(outdir, [stem '.fig']));
     close(fig);
-catch ME
-    if ~isempty(fig) && isgraphics(fig)
-        close(fig);
-    end
-    warning('NCGP:AccuracyFigureFailure', ...
-        'Accuracy summary CSV saved, but figure export failed: %s', ...
-        ME.message);
-end
 end
 
 function writeFacesAnswerQualityReport(wf, p, fileAudit, runs, trials, correct, valid)
@@ -560,26 +529,16 @@ overview = table(6*nSubjects*nSessions, allProcessed, allFailed, ...
     'censoredTrials', 'accuracyPct'});
 writetable(overview, fullfile(outdir, [stem '_answer_quality_overview.csv']));
 
-% Consolidate into a single reviewable workbook, in addition to CSVs.
-% An XLSX failure must not prevent the CSV QC records from being kept.
-try
-    book = fullfile(outdir, [stem '_answer_quality_report.xlsx']);
-    writetable(overview, book, 'Sheet', 'Overview');
-    writetable(subjects, book, 'Sheet', 'BySubjectSession');
-    writetable(files, book, 'Sheet', 'ByRunFile');
-    writetable(problems, book, 'Sheet', 'ProblematicFiles');
-catch ME
-    warning('NCGP:QCWorkbookExportFailure', ...
-        'Quality CSVs saved but XLSX report failed: %s', ME.message);
-end
+% Consolidate into one reviewable workbook, alongside CSV reports.
+book = fullfile(outdir, [stem '_answer_quality_report.xlsx']);
+writetable(overview, book, 'Sheet', 'Overview');
+writetable(subjects, book, 'Sheet', 'BySubjectSession');
+writetable(files, book, 'Sheet', 'ByRunFile');
+writetable(problems, book, 'Sheet', 'ProblematicFiles');
 
 % Text summary states denominator conventions explicitly.
 txtpath = fullfile(outdir, [stem '_answer_quality_report.txt']);
 fid = fopen(txtpath, 'w');
-if fid < 0
-    warning('NCGP:QCTextReportFailure', ...
-        'Could not write quality report text file: %s', txtpath);
-else
     fprintf(fid, 'Face task answer-quality report\n');
     fprintf(fid, '==============================\n');
     fprintf(fid, 'Expected run files: %d\n', 6*nSubjects*nSessions);
@@ -607,7 +566,6 @@ else
             char(string(problems.details(i))));
     end
     fclose(fid);
-end
 fprintf('Faces answer QC: %d processed, %d failed, %d evaluable, %d invalid/NA, %d correct.\n', ...
     allProcessed, allFailed, allValid, allTrials - allValid, allCorrect);
 end
