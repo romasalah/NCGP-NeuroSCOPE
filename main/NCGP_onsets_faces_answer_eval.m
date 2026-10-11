@@ -50,6 +50,14 @@ nTrials = zeros(nSubjects, nSessions);
 nCorrect = zeros(nSubjects, nSessions);
 nValid = zeros(nSubjects, nSessions);
 
+% One QC record per attempted behavioural file. Count each run once, even
+% when multiple cortical hemispheres are processed.
+% Fields: subject, session, run, sourceFile, outputFile, status,
+% totalTrials, validAnswers, correctAnswers, incorrectAnswers,
+% invalidAnswers, unexpectedInvalidAnswers, censoredTrials, accuracyPct,
+% errorID, details.
+fileAudit = cell(0, 16);
+
 for hi = 1:nHemis
     for sesi = 1:nSessions
         curses = wf.sessions{sesi};
@@ -80,6 +88,14 @@ for hi = 1:nHemis
                     'Expected one run-order record for %s %s, found %d. Skipping.', ...
                     cursub, sesname, nnz(matching));
                 facessessruns{sesi, hi}{subi} = cell(0, 2);
+                if hi == 1
+                    fileAudit(end + 1, :) = { ...
+                        string(cursub), string(curses), "NA", "", "", ...
+                        "run_order_error", NaN, NaN, NaN, NaN, NaN, ...
+                        NaN, NaN, NaN, "NCGP:RunOrderMismatch", ...
+                        sprintf('Expected one run-order row, found %d.', nnz(matching)) ...
+                    }; %#ok<AGROW>
+                end
                 continue;
             end
 
@@ -98,8 +114,12 @@ for hi = 1:nHemis
                     cursub, curses, wf.task, runNumber);
                 outputFile = fullfile(cursesdir, outputName);
 
+                % Retain any known trial count even if a subsequent step
+                % fails. Unknown counts are reported as NaN, not zero.
+                readTrials = NaN;
                 try
                     oldtbl = readtable(behaviouralFile);
+                    readTrials = height(oldtbl);
                     required = {'Person', 'PresentationTimes', ...
                         'RawAnswer', 'Face'};
                     if ~all(ismember(required, oldtbl.Properties.VariableNames))
@@ -241,12 +261,54 @@ for hi = 1:nHemis
                         nValid(subi, sesi) = nValid(subi, sesi) + nnz(evaluable);
                         nCorrect(subi, sesi) = nCorrect(subi, sesi) + ...
                             nnz(trialEval == 1);
+
+                        % Distinguish valid but incorrect responses from
+                        % invalid/NA responses. Trial 1 is always NA in
+                        % the 1-back task and is not flagged as a problem.
+                        fileCorrect = nnz(trialEval == 1);
+                        fileValid = nnz(evaluable);
+                        fileIncorrect = fileValid - fileCorrect;
+                        fileInvalid = height(oldtbl) - fileValid;
+                        fileUnexpectedInvalid = nnz(expectedResponse & ~evaluable);
+                        fileCensored = height(oldtbl) - fileCorrect;
+                        fileAccuracy = NaN;
+                        if fileValid > 0
+                            fileAccuracy = 100 * fileCorrect / fileValid;
+                        end
+
+                        status = "processed";
+                        detail = "";
+                        if fileUnexpectedInvalid > 0
+                            status = "processed_with_invalid_answers";
+                            detail = sprintf( ...
+                                '%d non-evaluable answer(s) beyond the expected first trial.', ...
+                                fileUnexpectedInvalid);
+                        end
+
+                        fileAudit(end + 1, :) = { ...
+                            string(cursub), string(curses), ...
+                            string(['run-0' runNumber]), ...
+                            string(behaviouralName), string(outputName), ...
+                            status, height(oldtbl), fileValid, fileCorrect, ...
+                            fileIncorrect, fileInvalid, fileUnexpectedInvalid, ...
+                            fileCensored, fileAccuracy, "", detail ...
+                        }; %#ok<AGROW>
                     end
 
                 catch ME
                     warning('NCGP:OnsetsFacesEvalSkippedRun', ...
                         'Unable to process %s (%s %s): %s', ...
                         behaviouralName, cursub, curses, ME.message);
+                    if hi == 1
+                        fileAudit(end + 1, :) = { ...
+                            string(cursub), string(curses), ...
+                            string(['run-0' runNumber]), ...
+                            string(behaviouralName), string(outputName), ...
+                            "failed", readTrials, NaN, NaN, NaN, NaN, ...
+                            NaN, NaN, NaN, string(ME.identifier), ...
+                            string(ME.message) ...
+                        }; %#ok<AGROW>
+                    end
                 end
             end
             facessessruns{sesi, hi}{subi} = successRuns;
@@ -254,9 +316,13 @@ for hi = 1:nHemis
     end
 end
 
-% Report and visualize accuracy pooled over the successful runs of each
-% participant/session. Non-evaluable responses are zero in AnswerEval,
-% but excluded from the accuracy denominator using evaluable trial counts.
+% Save detailed run-level quality and failure reports FIRST, so QC survives
+% any plot-export problem. Valid-answer counts exclude NA/non-evaluable
+% trials, while AnswerEval=0 additionally includes incorrect trials.
+writeFacesAnswerQualityReport(wf, p, fileAudit, ...
+    nRuns, nTrials, nCorrect, nValid);
+
+% Preserve the existing participant-by-session accuracy figure and CSV.
 writeSubjectAccuracyFigures( ...
     wf, p, nRuns, nTrials, nCorrect, nValid);
 end
@@ -391,4 +457,147 @@ catch ME
         'Accuracy summary CSV saved, but figure export failed: %s', ...
         ME.message);
 end
+end
+
+function writeFacesAnswerQualityReport(wf, p, fileAudit, runs, trials, correct, valid)
+% Write machine-readable QC and human-readable overview. Data reported
+% here are BEHAVIOURAL TRIALS, never doubled face/black event rows.
+% "validAnswers" = evaluable Yes/No; "invalidAnswers" = missing/NA;
+% "censoredTrials" = all AnswerEval=0 (incorrect + invalid).
+
+outdir = fullfile(p.pre, 'faces_answer_evaluation');
+if ~exist(outdir, 'dir')
+    mkdir(outdir);
+end
+stem = ['task-' char(wf.task)];
+names = {'subject', 'session', 'run', 'sourceFile', 'outputFile', ...
+    'status', 'totalTrials', 'validAnswers', 'correctAnswers', ...
+    'incorrectAnswers', 'invalidAnswers', 'unexpectedInvalidAnswers', ...
+    'censoredTrials', 'accuracyPct', 'errorID', 'details'};
+files = cell2table(fileAudit, 'VariableNames', names);
+
+bad = ~strcmp(string(files.status), "processed");
+problems = files(bad, :);
+writetable(files, fullfile(outdir, [stem '_run_quality.csv']));
+writetable(problems, fullfile(outdir, [stem '_problematic_files.csv']));
+
+% Subject/session QC includes failed file counts, unlike the original
+% accuracy summary, which covers successfully processed runs only.
+nSubjects = numel(wf.subs);
+nSessions = numel(wf.sessions);
+nRows = nSubjects * nSessions;
+subj = strings(nRows, 1);
+sess = strings(nRows, 1);
+processedFiles = zeros(nRows, 1);
+failedFiles = zeros(nRows, 1);
+totalTrials = zeros(nRows, 1);
+validAnswers = zeros(nRows, 1);
+correctAnswers = zeros(nRows, 1);
+incorrectAnswers = zeros(nRows, 1);
+invalidAnswers = zeros(nRows, 1);
+censoredTrials = zeros(nRows, 1);
+accuracyPct = nan(nRows, 1);
+row = 0;
+for subi = 1:nSubjects
+    for sesi = 1:nSessions
+        row = row + 1;
+        subj(row) = string(wf.subs{subi});
+        sess(row) = string(wf.sessions{sesi});
+        processedFiles(row) = runs(subi, sesi);
+        fileMask = string(files.subject) == subj(row) & ...
+            string(files.session) == sess(row);
+        failedFiles(row) = nnz(string(files.status(fileMask)) == "failed");
+        totalTrials(row) = trials(subi, sesi);
+        validAnswers(row) = valid(subi, sesi);
+        correctAnswers(row) = correct(subi, sesi);
+        incorrectAnswers(row) = validAnswers(row) - correctAnswers(row);
+        invalidAnswers(row) = totalTrials(row) - validAnswers(row);
+        censoredTrials(row) = totalTrials(row) - correctAnswers(row);
+        if validAnswers(row) > 0
+            accuracyPct(row) = 100 * correctAnswers(row) / validAnswers(row);
+        end
+    end
+end
+subjects = table(subj, sess, processedFiles, failedFiles, ...
+    totalTrials, validAnswers, correctAnswers, incorrectAnswers, ...
+    invalidAnswers, censoredTrials, accuracyPct, ...
+    'VariableNames', {'subject', 'session', 'processedFiles', 'failedFiles', ...
+    'totalTrials', 'validAnswers', 'correctAnswers', 'incorrectAnswers', ...
+    'invalidAnswers', 'censoredTrials', 'accuracyPct'});
+writetable(subjects, fullfile(outdir, [stem '_subject_quality.csv']));
+
+allValid = sum(valid(:));
+allCorrect = sum(correct(:));
+allTrials = sum(trials(:));
+allProcessed = sum(runs(:));
+allFailed = nnz(string(files.status) == "failed");
+allRunOrderProblems = nnz(string(files.status) == "run_order_error");
+allProblemRecords = height(problems);
+allUnexpectedInvalid = sum(cell2mat(files.unexpectedInvalidAnswers( ...
+    strcmp(string(files.status), "processed_with_invalid_answers"))));
+allAccuracy = NaN;
+if allValid > 0
+    allAccuracy = 100 * allCorrect / allValid;
+end
+overview = table(6*nSubjects*nSessions, allProcessed, allFailed, ...
+    allRunOrderProblems, allProblemRecords, allTrials, allValid, ...
+    allCorrect, allValid - allCorrect, allTrials - allValid, ...
+    allUnexpectedInvalid, allTrials - allCorrect, allAccuracy, ...
+    'VariableNames', {'expectedRunFiles', 'processedRunFiles', ...
+    'failedRunFiles', 'runOrderProblems', 'problemRecords', ...
+    'processedTrials', 'validAnswers', 'correctAnswers', ...
+    'incorrectAnswers', 'invalidAnswers', 'unexpectedInvalidAnswers', ...
+    'censoredTrials', 'accuracyPct'});
+writetable(overview, fullfile(outdir, [stem '_answer_quality_overview.csv']));
+
+% Consolidate into a single reviewable workbook, in addition to CSVs.
+% An XLSX failure must not prevent the CSV QC records from being kept.
+try
+    book = fullfile(outdir, [stem '_answer_quality_report.xlsx']);
+    writetable(overview, book, 'Sheet', 'Overview');
+    writetable(subjects, book, 'Sheet', 'BySubjectSession');
+    writetable(files, book, 'Sheet', 'ByRunFile');
+    writetable(problems, book, 'Sheet', 'ProblematicFiles');
+catch ME
+    warning('NCGP:QCWorkbookExportFailure', ...
+        'Quality CSVs saved but XLSX report failed: %s', ME.message);
+end
+
+% Text summary states denominator conventions explicitly.
+txtpath = fullfile(outdir, [stem '_answer_quality_report.txt']);
+fid = fopen(txtpath, 'w');
+if fid < 0
+    warning('NCGP:QCTextReportFailure', ...
+        'Could not write quality report text file: %s', txtpath);
+else
+    fprintf(fid, 'Face task answer-quality report\\n');
+    fprintf(fid, '==============================\\n');
+    fprintf(fid, 'Expected run files: %d\\n', 6*nSubjects*nSessions);
+    fprintf(fid, 'Processed run files: %d\\n', allProcessed);
+    fprintf(fid, 'Failed run files: %d\\n', allFailed);
+    fprintf(fid, 'Run-order problems: %d\\n', allRunOrderProblems);
+    fprintf(fid, 'Problem records: %d\\n', allProblemRecords);
+    fprintf(fid, 'Trials in processed files: %d\\n', allTrials);
+    fprintf(fid, 'Valid/evaluable answers: %d\\n', allValid);
+    fprintf(fid, 'Correct answers: %d\\n', allCorrect);
+    fprintf(fid, 'Incorrect but evaluable answers: %d\\n', allValid - allCorrect);
+    fprintf(fid, 'Invalid/NA answers (including first trial): %d\\n', allTrials - allValid);
+    fprintf(fid, 'Unexpected invalid answers beyond first trial: %d\\n', ...
+        allUnexpectedInvalid);
+    fprintf(fid, 'Censored trials (AnswerEval=0): %d\\n', allTrials - allCorrect);
+    fprintf(fid, 'Accuracy among evaluable answers: %.2f%%\\n', allAccuracy);
+    fprintf(fid, '\\nProblematic source files and reasons:\\n');
+    for i = 1:height(problems)
+        fprintf(fid, '%s %s %s | %s | %s | %s\\n', ...
+            char(string(problems.subject(i))), ...
+            char(string(problems.session(i))), ...
+            char(string(problems.run(i))), ...
+            char(string(problems.sourceFile(i))), ...
+            char(string(problems.status(i))), ...
+            char(string(problems.details(i))));
+    end
+    fclose(fid);
+end
+fprintf('Faces answer QC: %d processed, %d failed, %d evaluable, %d invalid/NA, %d correct.\\n', ...
+    allProcessed, allFailed, allValid, allTrials - allValid, allCorrect);
 end
