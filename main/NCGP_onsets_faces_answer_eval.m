@@ -121,7 +121,7 @@ for hi = 1:nHemis
 
                     % Determine Yes from the thumbs key; derive No from its
                     % complementary key. Never require middlekeylist.
-                    yesKey = getThumbsKey(oldtbl, behaviouralName);
+                    yesKey = getThumbsKey(oldtbl);
                     switch yesKey
                         case "a"
                             noKey = "b";
@@ -309,7 +309,7 @@ writeSubjectAccuracyFigures( ...
     wf, p, nRuns, nTrials, nCorrect, nValid);
 end
 
-function key = getThumbsKey(tbl, behaviouralName)
+function key = getThumbsKey(tbl)
 % Support the new name plus the legacy PsychoPy key-column variants.
 aliases = ["thumbs_key", "thumb_key", "thumbkeylist", ...
            "thumbskey", "thumbkey"];
@@ -397,35 +397,35 @@ if ~any(valid(:) > 0)
 end
 
 fig = figure('Visible', 'off', 'Color', 'w', ...
-        'Position', [100, 100, max(900, 65 * nSubjects), 550]);
-    ax = axes('Parent', fig);
-    bar(ax, accuracyMatrix, 'grouped');
-    ylim(ax, [0, 100]);
-    xlim(ax, [0.5, nSubjects + 0.5]);
-    xticks(ax, 1:nSubjects);
-    xticklabels(ax, wf.subs);
-    xtickangle(ax, 45);
-    ylabel(ax, 'Correct answers / evaluable answers (%)');
-    xlabel(ax, 'Participant');
-    title(ax, 'Face-task behavioural accuracy by participant');
-    grid(ax, 'on');
+    'Position', [100, 100, max(900, 65 * nSubjects), 550]);
+ax = axes('Parent', fig);
+bar(ax, accuracyMatrix, 'grouped');
+ylim(ax, [0, 100]);
+xlim(ax, [0.5, nSubjects + 0.5]);
+xticks(ax, 1:nSubjects);
+xticklabels(ax, wf.subs);
+xtickangle(ax, 45);
+ylabel(ax, 'Correct answers / evaluable answers (%)');
+xlabel(ax, 'Participant');
+title(ax, 'Face-task behavioural accuracy by participant');
+grid(ax, 'on');
 
-    legendLabels = strings(1, nSessions);
-    for si = 1:nSessions
-        switch wf.sessions{si}
-            case 'ses-02'
-                legendLabels(si) = "Pre (ses-02)";
-            case 'ses-03'
-                legendLabels(si) = "Post (ses-03)";
-            otherwise
-                legendLabels(si) = string(wf.sessions{si});
-        end
+legendLabels = strings(1, nSessions);
+for si = 1:nSessions
+    switch wf.sessions{si}
+        case 'ses-02'
+            legendLabels(si) = "Pre (ses-02)";
+        case 'ses-03'
+            legendLabels(si) = "Post (ses-03)";
+        otherwise
+            legendLabels(si) = string(wf.sessions{si});
     end
-    legend(ax, cellstr(legendLabels), 'Location', 'bestoutside');
+end
+legend(ax, cellstr(legendLabels), 'Location', 'bestoutside');
 
-    saveas(fig, fullfile(outdir, [stem '.png']));
-    savefig(fig, fullfile(outdir, [stem '.fig']));
-    close(fig);
+saveas(fig, fullfile(outdir, [stem '.png']));
+savefig(fig, fullfile(outdir, [stem '.fig']));
+close(fig);
 end
 
 function writeFacesAnswerQualityReport(wf, p, fileAudit, runs, trials, correct, valid)
@@ -539,33 +539,33 @@ writetable(problems, book, 'Sheet', 'ProblematicFiles');
 % Text summary states denominator conventions explicitly.
 txtpath = fullfile(outdir, [stem '_answer_quality_report.txt']);
 fid = fopen(txtpath, 'w');
-    fprintf(fid, 'Face task answer-quality report\n');
-    fprintf(fid, '==============================\n');
-    fprintf(fid, 'Expected run files: %d\n', 6*nSubjects*nSessions);
-    fprintf(fid, 'Processed run files: %d\n', allProcessed);
-    fprintf(fid, 'Failed run files: %d\n', allFailed);
-    fprintf(fid, 'Run-order problems: %d\n', allRunOrderProblems);
-    fprintf(fid, 'Problem records: %d\n', allProblemRecords);
-    fprintf(fid, 'Trials in processed files: %d\n', allTrials);
-    fprintf(fid, 'Valid/evaluable answers: %d\n', allValid);
-    fprintf(fid, 'Correct answers: %d\n', allCorrect);
-    fprintf(fid, 'Incorrect but evaluable answers: %d\n', allValid - allCorrect);
-    fprintf(fid, 'Invalid/NA answers (including first trial): %d\n', allTrials - allValid);
-    fprintf(fid, 'Unexpected invalid answers beyond first trial: %d\n', ...
-        allUnexpectedInvalid);
-    fprintf(fid, 'Censored trials (AnswerEval=0): %d\n', allTrials - allCorrect);
-    fprintf(fid, 'Accuracy among evaluable answers: %.2f%%\n', allAccuracy);
-    fprintf(fid, '\nProblematic source files and reasons:\n');
-    for i = 1:height(problems)
-        fprintf(fid, '%s %s %s | %s | %s | %s\n', ...
-            char(string(problems.subject(i))), ...
-            char(string(problems.session(i))), ...
-            char(string(problems.run(i))), ...
-            char(string(problems.sourceFile(i))), ...
-            char(string(problems.status(i))), ...
-            char(string(problems.details(i))));
-    end
-    fclose(fid);
+fprintf(fid, 'Face task answer-quality report\n');
+fprintf(fid, '==============================\n');
+fprintf(fid, 'Expected run files: %d\n', 6*nSubjects*nSessions);
+fprintf(fid, 'Processed run files: %d\n', allProcessed);
+fprintf(fid, 'Failed run files: %d\n', allFailed);
+fprintf(fid, 'Run-order problems: %d\n', allRunOrderProblems);
+fprintf(fid, 'Problem records: %d\n', allProblemRecords);
+fprintf(fid, 'Trials in processed files: %d\n', allTrials);
+fprintf(fid, 'Valid/evaluable answers: %d\n', allValid);
+fprintf(fid, 'Correct answers: %d\n', allCorrect);
+fprintf(fid, 'Incorrect but evaluable answers: %d\n', allValid - allCorrect);
+fprintf(fid, 'Invalid/NA answers (including first trial): %d\n', allTrials - allValid);
+fprintf(fid, 'Unexpected invalid answers beyond first trial: %d\n', ...
+    allUnexpectedInvalid);
+fprintf(fid, 'Censored trials (AnswerEval=0): %d\n', allTrials - allCorrect);
+fprintf(fid, 'Accuracy among evaluable answers: %.2f%%\n', allAccuracy);
+fprintf(fid, '\nProblematic source files and reasons:\n');
+for i = 1:height(problems)
+    fprintf(fid, '%s %s %s | %s | %s | %s\n', ...
+        char(string(problems.subject(i))), ...
+        char(string(problems.session(i))), ...
+        char(string(problems.run(i))), ...
+        char(string(problems.sourceFile(i))), ...
+        char(string(problems.status(i))), ...
+        char(string(problems.details(i))));
+end
+fclose(fid);
 fprintf('Faces answer QC: %d processed, %d failed, %d evaluable, %d invalid/NA, %d correct.\n', ...
     allProcessed, allFailed, allValid, allTrials - allValid, allCorrect);
 end
