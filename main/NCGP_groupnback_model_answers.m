@@ -30,12 +30,12 @@ if nTrials == 0
 end
 
 % Extract the AH or NAT group from each face-image filename. Use the
-% original filename pattern so existing input validation stays unchanged.
+% GN1-GN6 filename pattern, preserving strict group/identity and image type.
 prefix = strings(nTrials, 1);
 for trial = 1:nTrials
     imageText = char(string(behaviour.Face(trial)));
     imageMatch = regexp(imageText, ...
-        '(AH|NAT)[1-4]_groupnback1[01]\.png', ...
+        '(AH|NAT)[1-4]_groupnback[1-6][01]\.png', ...
         'tokens', 'once', 'ignorecase');
     if isempty(imageMatch)
         error('NCGP:UnrecognizedNBackFace', ...
