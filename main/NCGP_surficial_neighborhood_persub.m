@@ -100,7 +100,7 @@ for si = 1:length(wf.sessions)
         delete(gcp('nocreate'))
         parpool(4);
         % Section: for-block starts
-        parfor parsub =1:length(persons)
+        for parsub =1:length(persons)
             cursfx=imgsuffixes{1};
             curbetalocs=beta_loc{si,hi}{parsub};
             resdir=dir([curbetalocs 'Res_*.nii.gz']);

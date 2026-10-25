@@ -20,7 +20,7 @@ switch exp
 % Call → NCGP_osdir: Project function call
         wf.mainpath=[NCGP_osdir() 'derivatives' filesep 'BehavNCGP' filesep];
     case 'NCGP'
-        subsnum=[4:8, 10,11,12,13, 15,16, 19:24];
+        subsnum=[5:8, 10,11,12,13, 15,16, 19:24];
         subs=string(subsnum);
         sublist={};
 % Section: for-block starts
