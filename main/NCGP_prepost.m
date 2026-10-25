@@ -3,7 +3,7 @@
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % ==========================================================================
 function [alltasksmat_pre, alltasksmat_post,taskname]=NCGP_prepost(wf, plotflag)
-close all;
+%close all;
 %% settings
 taskname={'Physical','Personality','Social life'};
 gpnames_AH={'AH1','AH2','AH3','AH4','NAT1','NAT2','NAT3','NAT4'};

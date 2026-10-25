@@ -95,7 +95,7 @@ for si = 1:length(wf.sessions)
         delete(metadatafn);
         save(metadatafn,'chunks', 'targets','conbetas');
         %% Convert Residuals to surfaces
-        imgsuffixes={'a','b','c','d'};
+        imgsuffixes={'a','b','c','d','e','f'};
         imgsuffixes=repmat(imgsuffixes,1,4);
         delete(gcp('nocreate'))
         parpool(4);

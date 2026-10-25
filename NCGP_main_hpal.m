@@ -32,12 +32,12 @@ elseif Step==2
     %% Create workflows
     wf2=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
-    wf2.sessions={'ses-03'};
+    wf2.sessions={'ses-02', 'ses-03'};
     [faces_runs]=NCGP_onsets_faces(wf2);
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
     %% Hypothesis 1
     % Compute pre vs post session differences (e.g., between-/within-group LDt change).
-    [wf2.targetRSM_pre, wf2.targetRSM_post, taskname]=NCGP_prepost(wfbehav,0);
+    [wf2.targetRSM_pre, wf2.targetRSM_post, taskname]=NCGP_prepost(wfbehav,1);
     %% 
     %% Searchlights: Neighbourhoods, Betas , and Residuals
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...

@@ -38,8 +38,9 @@ if ~strcmpi(timedata,'postminuspre')
                 for ic=1:8
 % Section: if-block starts
                     if ic<ir
-                        irname=gpnames{ir};
-                        icname=gpnames{ic};
+                        curgpnames=allgpnames{subi};
+                        irname=curgpnames{ir};
+                        icname=curgpnames{ic};
                         currow=find((contains(curtasktb(:,1),irname) & contains(curtasktb(:,2),icname)) | (contains(curtasktb(:,1),icname) & contains(curtasktb(:,2),irname)));                      ;
                         corrlist0(ir,ic,subi)=mean([curtasktb{currow,3}]);
                     end
