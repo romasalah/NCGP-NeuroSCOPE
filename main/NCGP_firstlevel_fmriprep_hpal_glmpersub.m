@@ -54,7 +54,7 @@ for si=1:Nses
         regs={};
         % Section: for-block starts
         % Section: for-block starts
-        parfor (subi=1:length(subs), 2)
+        parfor (subi=1:length(subs), 4)
             confnames=confnameopts{1};
             matlabbatch={};
             curcellruns = [];

@@ -19,7 +19,7 @@ allhemis=wf.hemis;
 % Section: for-block starts
 for si = 1:length(wf.sessions)
     cursession=wf.sessions{si};
-% Section: for-block starts
+    % Section: for-block starts
     for hi = 1: length(wf.hemis)
         curhemi=allhemis{hi};
         chunksnum=0;
@@ -47,14 +47,14 @@ for si = 1:length(wf.sessions)
         chunks=cell2mat(curruninfo{si,hi}.Chunk);
         classes=cell2mat(curruninfo{si,hi}.Label);
         lastchunkinsub=0;
-% Section: for-block starts
+        % Section: for-block starts
         for subi =1:length(persons)
             cursub=persons{subi};
             cursubruns=faces_runs{si,hi}{subi};
             cursubruns_num=size(cursubruns,1);
             %% Load the GLM
-                       onsets='face';
-             if wf.modelblackresponse==1
+            onsets='face';
+            if wf.modelblackresponse==1
                 onsets='faceblackresponse';
             end
             beta_loc{si,hi}{subi} = [mainPath 'derivatives' filesep wf.glm filesep persons{subi} filesep wf.pre filesep  'task-' wf.task '_' cursession '_hemi-' curhemi '_smooth-' wf.smooth '_onsets-' onsets filesep];
@@ -71,23 +71,23 @@ for si = 1:length(wf.sessions)
         mkdir(group_spmdir)
         curds_nii=conbetas{si, hi};
         dssurf={};
-% Section: for-block starts
+        % Section: for-block starts
         for bi =1:size(curds_nii,1)
             betadsetname=strrep(curds_nii{bi,1},'.nii', '+orig.niml.dset');
-% Section: if-block starts
+            % Section: if-block starts
             if ~exist(betadsetname,'file')
-% Call → NCGP_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
+                % Call → NCGP_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
                 curfoldernameloc= strfind(curds_nii{bi,1},'beta_');
                 curfoldername=curds_nii{bi,1}(1:curfoldernameloc-1);
                 NCGP_vol2surf(wf, strrep(curds_nii{bi,1},curfoldername,''), curfoldername, curhemi,'a');
             end
-% Toolbox call → cosmo_surface_dataset
+            % Toolbox call → cosmo_surface_dataset
             dssurf{bi} = cosmo_surface_dataset(betadsetname,'targets',curds_nii{bi,3},'chunks',curds_nii{bi,2});
         end
-% Toolbox call → cosmo_stack
+        % Toolbox call → cosmo_stack
         dssurfall=cosmo_stack(dssurf);
         dssurf_betasfn=[group_spmdir filesep '4dsurf.niml.dset'];
-% Toolbox call → cosmo_map2surface
+        % Toolbox call → cosmo_map2surface
         cosmo_map2surface(dssurfall,dssurf_betasfn);
         chunks=dssurfall.sa.chunks;
         targets=dssurfall.sa.targets;
@@ -95,60 +95,60 @@ for si = 1:length(wf.sessions)
         delete(metadatafn);
         save(metadatafn,'chunks', 'targets','conbetas');
         %% Convert Residuals to surfaces
-        imgsuffixes={'a','b','c','d','e','f'};
+        imgsuffixes={'a','b','c','d'};
         imgsuffixes=repmat(imgsuffixes,1,4);
         delete(gcp('nocreate'))
-        parpool(5);                   
-% Section: for-block starts
+        parpool(4);
+        % Section: for-block starts
         parfor parsub =1:length(persons)
             cursfx=imgsuffixes{1};
             curbetalocs=beta_loc{si,hi}{parsub};
-            resdir=dir([curbetalocs 'Res_*.nii']);
-% Section: for-block starts
+            resdir=dir([curbetalocs 'Res_*.nii.gz']);
+            % Section: for-block starts
             for ri =1:length(resdir)
                 curresnii=resdir(ri).name;
-                resdsetname=strrep(curresnii,'.nii', '+orig.niml.dset');
-% Section: if-block starts
+                resdsetname=strrep(curresnii,'.nii.gz', '+orig.niml.dset');
+                % Section: if-block starts
                 if ~exist([curbetalocs resdsetname],'file')
-% Call → NCGP_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
-                    NCGP_vol2surf(wf, curresnii, curbetalocs, curhemi, cursfx);
+                    % Call → NCGP_vol2surf: Sample volumetric data to surface nodes (fsaverage6), creating per-vertex data from 3D images.
+                    NCGP_vol2surf_gz(wf, curresnii, curbetalocs, curhemi, cursfx);
                 end
             end
         end
         allressurfs={};
-% Section: for-block starts
+        % Section: for-block starts
         for subi =1:length(persons)
             curbetalocs=beta_loc{si,hi}{subi};
-            resdir=dir([curbetalocs 'Res_*.nii']);
-% Section: for-block starts
+            resdir=dir([curbetalocs 'Res_*.nii.gz']);
+            % Section: for-block starts
             for ri =1:length(resdir)
                 curresnii=resdir(ri).name;
-                resdsetname=strrep(curresnii,'.nii', '+orig.niml.dset');
-% Toolbox call → cosmo_surface_dataset
+                resdsetname=strrep(curresnii,'.nii.gz', '+orig.niml.dset');
+                % Toolbox call → cosmo_surface_dataset
                 resdset_list{ri} = cosmo_surface_dataset([curbetalocs resdsetname]);
             end
             allressurfs=vertcat(allressurfs, resdset_list');
         end
-% Toolbox call → cosmo_stack
+        % Toolbox call → cosmo_stack
         ressurfall=cosmo_stack(allressurfs);
         fdsurf_res=[group_spmdir '4dsurf_res.niml.dset'];
         delete(fdsurf_res);
-% Toolbox call → cosmo_map2surface
+        % Toolbox call → cosmo_map2surface
         cosmo_map2surface(ressurfall,fdsurf_res);
         %% define searchlights for each feature (voxel).
         disp(['Defining Neighborhoods']);
-% Toolbox call → cosmo_surface_dataset
+        % Toolbox call → cosmo_surface_dataset
         betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',classes,'chunks',chunks);
-% Toolbox call → cosmo_surficial_neighborhood
+        % Toolbox call → cosmo_surficial_neighborhood
         [allnbrhood_frombetas,vo,fo,out2in]=cosmo_surficial_neighborhood(betasds,{pial_fn},'radius',radius);
-% Toolbox call → cosmo_convert_neighborhood
+        % Toolbox call → cosmo_convert_neighborhood
         allnbrhood_frombetas_cell=cosmo_convert_neighborhood(allnbrhood_frombetas, 'cell');
-% Call → NCGP_surface_neighborhood_plot: Project function call
+        % Call → NCGP_surface_neighborhood_plot: Project function call
         %NCGP_surface_neighborhood_plot(nbrhood_sl,pial_fn)
         %% extract betas and residuals for each searchlight
-% Call → NCGP_extract_betasres: Extract condition-wise beta estimates and residuals per searchlight; assemble 4D surface datasets.
+        % Call → NCGP_extract_betasres: Extract condition-wise beta estimates and residuals per searchlight; assemble 4D surface datasets.
         [betasfn{si, hi}, nscans_subrun{si, hi}] = NCGP_extract_betasres(wf, betasds, beta_loc{si,hi}, group_spmdir,allnbrhood_frombetas_cell, 'none',presaved_betas_flag );
-% Call → NCGP_betas_export_4D: Project function call
+        % Call → NCGP_betas_export_4D: Project function call
         %NCGP_betas_export_4D(betasfn{si,hi})
         %% store the results
         allnbr_frombetas_sesshemi{si, hi}=allnbrhood_frombetas;

@@ -20,8 +20,7 @@ switch exp
 % Call → NCGP_osdir: Project function call
         wf.mainpath=[NCGP_osdir() 'derivatives' filesep 'BehavNCGP' filesep];
     case 'NCGP'
-        subsnum=[4:8, 10:13, 15,16, 19:24];
-        %subsnum=[15,16, 19:24];
+        subsnum=[4:8, 10,11,12,13, 15,16, 19:24];
         subs=string(subsnum);
         sublist={};
 % Section: for-block starts
@@ -50,7 +49,7 @@ switch wfname
         wf.mainpath=NCGP_osdir(wf.exp);
         wf.t1folder=[wf.mainpath wf.pre filesep 'fsaverage6' filesep 'T1' filesep];
         wf.runs={'run-01','run-02','run-03','run-04','run-05','run-06'};
-        wf.sessions={'ses-02', 'ses-03'};
+        wf.sessions={'ses-03'};
         %wf.sessions={'ses-02'};
         wf.task='faces';
         wf.TR=2.5;
