@@ -28,7 +28,10 @@ for tsi= 1:3
                 if p2<p1
                     p1name=fixedgpnames{p1};
                     p2name=fixedgpnames{p2};
-                    currow=find((contains(curtasktb(:,1),p1name) & contains(curtasktb(:,2),p2name)) | (contains(curtasktb(:,1),p2name) & contains(curtasktb(:,2),p1name)));                      ;
+                    currow=find((contains(curtasktb(:,1),p1name) & contains(curtasktb(:,2),p2name)) | (contains(curtasktb(:,1),p2name) & contains(curtasktb(:,2),p1name)));
+                    assert(~isempty(currow), ...
+                        'Missing behavioral rating: %s vs %s, participant %d', ...
+                        p1name,p2name,subi);
                     corrlist0(p1,p2,subi)=mean([curtasktb{currow,3}]);
                 end
             end
@@ -38,21 +41,102 @@ for tsi= 1:3
 end
 
 
-for tsi=1:length(alltaskssim)
-    allingpsim_vals{tsi}=[];
-    alloutgpsim_vals{tsi}=[];
-    allbtgpsim_vals{tsi}=[];    
-    for subi =1:size(alltasksmat{tsi},3)
-        cursb_fromRDM=alltasksmat{tsi}(:,:,subi);
-        ingpsim_vals{tsi}{subi}=[cursb_fromRDM(2:4,1); cursb_fromRDM(3:4,2); cursb_fromRDM(4,3);];
-        outgpsim_vals{tsi}{subi}=[cursb_fromRDM(6:8,5); cursb_fromRDM(7:8,6); cursb_fromRDM(8,7);];
-        btgpsim_vals{tsi}{subi}=[cursb_fromRDM(5:8,1:4)];
-        allingpsim_vals{tsi}=[allingpsim_vals{tsi} ingpsim_vals{tsi}{subi}];
-        alloutgpsim_vals{tsi}=[alloutgpsim_vals{tsi} outgpsim_vals{tsi}{subi}];
-        allbtgpsim_vals{tsi}=[allbtgpsim_vals{tsi} btgpsim_vals{tsi}{subi}(:)];
+% for tsi=1:length(alltaskssim)
+%     allingpsim_vals{tsi}=[];
+%     alloutgpsim_vals{tsi}=[];
+%     allbtgpsim_vals{tsi}=[];    
+%     for subi =1:size(alltasksmat{tsi},3)
+%         cursb_fromRDM=alltasksmat{tsi}(:,:,subi);
+%         ingpsim_vals{tsi}{subi}=[cursb_fromRDM(2:4,1); cursb_fromRDM(3:4,2); cursb_fromRDM(4,3);];
+%         outgpsim_vals{tsi}{subi}=[cursb_fromRDM(6:8,5); cursb_fromRDM(7:8,6); cursb_fromRDM(8,7);];
+%         btgpsim_vals{tsi}{subi}=[cursb_fromRDM(5:8,1:4)];
+%         allingpsim_vals{tsi}=[allingpsim_vals{tsi} ingpsim_vals{tsi}{subi}];
+%         alloutgpsim_vals{tsi}=[alloutgpsim_vals{tsi} outgpsim_vals{tsi}{subi}];
+%         allbtgpsim_vals{tsi}=[allbtgpsim_vals{tsi} btgpsim_vals{tsi}{subi}(:)];
+%     end
+%     allingpsim_distavg{tsi}=mean(allingpsim_vals{tsi},1);
+%     alloutgpsim_distavg{tsi}=mean(alloutgpsim_vals{tsi},1);
+%     allbtgpsim_distavg{tsi}=mean(allbtgpsim_vals{tsi},1);
+% end
+
+
+% Fixed identity orders
+AH_first = {'AH1','AH2','AH3','AH4', ...
+    'NAT1','NAT2','NAT3','NAT4'};
+
+NAT_first = {'NAT1','NAT2','NAT3','NAT4', ...
+    'AH1','AH2','AH3','AH4'};
+
+for tsi = 1:length(alltaskssim)
+
+    allingpsim_vals{tsi} = [];
+    alloutgpsim_vals{tsi} = [];
+    allbtgpsim_vals{tsi} = [];
+
+    for subi = 1:size(alltasksmat{tsi},3)
+
+        % Original matrix, always in AH1-4, NAT1-4 order
+        cursb_fromRDM = alltasksmat{tsi}(:,:,subi);
+
+        % Convert lower-triangular RDM into symmetric RDM
+        cursb_fromRDM = cursb_fromRDM + cursb_fromRDM';
+
+        % Participant-specific group ordering
+        curgpnames = allgpnames{subi};
+
+        if isequal(curgpnames, AH_first)
+
+            % AH is ingroup: keep original order
+            idx = 1:8;
+
+        elseif isequal(curgpnames, NAT_first)
+
+            % NAT is ingroup: swap both 4x4 blocks
+            idx = [5:8, 1:4];
+
+        else
+            error('Unknown identity ordering for subject %d', subi);
+        end
+
+        % Reorder both rows and columns
+        cursb_fromRDM = cursb_fromRDM(idx,idx);
+
+        % Extract ingroup pairs (6 pairs)
+        ingpsim_vals{tsi}{subi} = [
+            cursb_fromRDM(2:4,1);
+            cursb_fromRDM(3:4,2);
+            cursb_fromRDM(4,3)
+            ];
+
+        % Extract outgroup pairs (6 pairs)
+        outgpsim_vals{tsi}{subi} = [
+            cursb_fromRDM(6:8,5);
+            cursb_fromRDM(7:8,6);
+            cursb_fromRDM(8,7)
+            ];
+
+        % Extract between-group pairs (16 pairs)
+        btgpsim_vals{tsi}{subi} = cursb_fromRDM(5:8,1:4);
+
+        % Aggregate across participants
+        allingpsim_vals{tsi} = [
+            allingpsim_vals{tsi}, ingpsim_vals{tsi}{subi}
+            ];
+
+        alloutgpsim_vals{tsi} = [
+            alloutgpsim_vals{tsi}, outgpsim_vals{tsi}{subi}
+            ];
+
+        allbtgpsim_vals{tsi} = [
+            allbtgpsim_vals{tsi}, btgpsim_vals{tsi}{subi}(:)
+            ];
+
     end
-    allingpsim_distavg{tsi}=mean(allingpsim_vals{tsi},1);
-    alloutgpsim_distavg{tsi}=mean(alloutgpsim_vals{tsi},1);
-    allbtgpsim_distavg{tsi}=mean(allbtgpsim_vals{tsi},1);
+
+    % Mean across face pairs, separately for each participant
+    allingpsim_distavg{tsi} = mean(allingpsim_vals{tsi},1);
+    alloutgpsim_distavg{tsi} = mean(alloutgpsim_vals{tsi},1);
+    allbtgpsim_distavg{tsi} = mean(allbtgpsim_vals{tsi},1);
+
 end
 end

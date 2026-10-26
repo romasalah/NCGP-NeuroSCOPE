@@ -115,19 +115,24 @@ for si = 1:length(wf.sessions)
                 end
             end
         end
-        allressurfs={};
-        % Section: for-block starts
-        for subi =1:length(persons)
-            curbetalocs=beta_loc{si,hi}{subi};
-            resdir=dir([curbetalocs 'Res_*.nii.gz']);
-            % Section: for-block starts
-            for ri =1:length(resdir)
-                curresnii=resdir(ri).name;
-                resdsetname=strrep(curresnii,'.nii.gz', '+orig.niml.dset');
-                % Toolbox call → cosmo_surface_dataset
-                resdset_list{ri} = cosmo_surface_dataset([curbetalocs resdsetname]);
+        allressurfs = {};
+
+        for subi = 1:length(persons)
+            curbetalocs = beta_loc{si,hi}{subi};
+            resdir = dir([curbetalocs 'Res_*.nii.gz']);
+            % Reset the array for each participant
+            resdset_list = cell(length(resdir),1);
+            for ri = 1:length(resdir)
+                curresnii = resdir(ri).name;
+                resdsetname = strrep( ...
+                    curresnii,'.nii.gz','+orig.niml.dset');
+                resdset_list{ri} = cosmo_surface_dataset( ...
+                    [curbetalocs resdsetname]);
+                assert(size(resdset_list{ri}.samples,1) == 1, ...
+                    'Expected one residual sample per file.');
             end
-            allressurfs=vertcat(allressurfs, resdset_list');
+            allressurfs = vertcat( ...
+                allressurfs, resdset_list);
         end
         % Toolbox call → cosmo_stack
         ressurfall=cosmo_stack(allressurfs);

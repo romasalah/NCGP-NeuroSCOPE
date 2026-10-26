@@ -32,7 +32,7 @@ elseif Step==2
     %% Create workflows
     wf2=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
-    wf2.sessions={'ses-02', 'ses-03'};
+    wf2.sessions={ 'ses-03'};
     [faces_runs]=NCGP_onsets_faces(wf2);
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
     %% Hypothesis 1

@@ -27,5 +27,5 @@ if sum(LDt_done)==length(LDt_done)
 end
 wf.sessions={wf.sessions{~LDt_done}};
 % Call → NCGP_LDt: Compute linear discriminability t-statistic (LDt) per searchlight using shrinkage covariance and cross-validation.
-[ldt_cv_sess, ldt_cv_subses_avg] = NCGP_LDt(wf, betasfn, nbrhoods_idx, nscans_subrun, mask);
+[ldt_cv_sess, ldt_cv_subses_avg] = NCGP_LDt_concat(wf, betasfn, nbrhoods_idx, nscans_subrun, mask);
 end
