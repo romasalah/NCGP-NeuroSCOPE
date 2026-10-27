@@ -50,7 +50,7 @@ for si = 1:length(wf.sessions)
         f = waitbar(0,'Please wait...');
         hbar = parfor_progressbar(allroinum, 'running LDC for all rois');
 
-        parfor mi = 1:allroinum
+       for mi = 1:allroinum
             hbar.iterate(1);
 
             betas_condbyrun2 = betas_condbyrun_c.Value;  % local handle
