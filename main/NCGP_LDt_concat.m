@@ -132,6 +132,7 @@ function dist = compute_ldc_all_training_runs(train_betas, test_betas, train_res
     covariance_cache = {};
     valid_residuals = cellfun(@(r) ~isempty(r) && ...
         size(r,2) == nfeatures && all(isfinite(r(:))), train_residuals);
+    valid_residuals = valid_residuals(:).';  % Align with 1-by-ntrain mask
 
     dist = zeros(ncond,ncond);
     for c1 = 1:(ncond-1)
