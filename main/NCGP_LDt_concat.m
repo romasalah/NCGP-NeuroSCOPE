@@ -109,9 +109,10 @@ end
 end
 
 
-% Evaluate every training run separately, without first averaging run-wise
-% beta patterns. Uses one covariance estimated from concatenated training
-% residuals, and keeps the held-out test run independent.
+% Evaluate every usable training run separately, without first averaging
+% run-wise beta patterns. For each face pair, estimate noise covariance from
+% only the retained training runs (reusing it when other pairs retain the
+% same runs), and keep the held-out test run independent.
 %
 % NOTE: This is an all-training-run discriminant ensemble, NOT the joint
 % training-partition GLM used by Tsantani et al. (2019). Reproducing their
