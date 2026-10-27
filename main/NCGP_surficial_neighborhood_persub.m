@@ -144,6 +144,7 @@ for si = 1:length(wf.sessions)
         disp(['Defining Neighborhoods']);
         % Toolbox call → cosmo_surface_dataset
         betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',classes,'chunks',chunks);
+        
         % Toolbox call → cosmo_surficial_neighborhood
         [allnbrhood_frombetas,vo,fo,out2in]=cosmo_surficial_neighborhood(betasds,{pial_fn},'radius',radius);
         % Toolbox call → cosmo_convert_neighborhood

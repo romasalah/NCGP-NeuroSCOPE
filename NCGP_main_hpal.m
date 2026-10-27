@@ -17,13 +17,13 @@ if Step == 1
     %% GLM: localizer:
     % loc_runs=NCGP_onsets_localizer(wfloc1);
     % wfloc1.group=1;
-    % firstleveldir=NCGP_firstlevel_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
+    % firstleveldir=NCGP_firstvalue_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
     % [conimgname,conimg_clustNum,spmdir]=NCGP_localiser_contrasts_hpal(wfloc1, loc_runs);
     %% GLM: Faces:
     % Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
-    [faces_runs]=NCGP_onsets_faces_answer_eval(wf1);
+    [faces_runs]=NCGP_onsets_faces(wf1);
     % Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
-    NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
+    %NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
     %% #######  ALign localizer mask to sessions and extract ROIs  #######
 % [S1_allnii,allroismat,S1_wholeroismat,combinedrois_binname]=NCGP_tmap2mask_allruns(localiserspmmatdir,conimgname,...
 %    {S1_taskrunsprefix, S2_taskrunsprefix},0);
@@ -32,7 +32,7 @@ elseif Step==2
     %% Create workflows
     wf2=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
-    wf2.sessions={ 'ses-03'};
+    wf2.sessions={ 'ses-02'};
     [faces_runs]=NCGP_onsets_faces(wf2);
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
     %% Hypothesis 1
