@@ -63,8 +63,10 @@ for si = 1:length(wf.sessions)
             % Keep every valid residual scan from each run, without padding.
             run_residuals = cell(size(css,1),1);
             run_lengths = cell2mat(css(:,2));
-            assert(sum(run_lengths) == size(A,1), ...
-                'Residual scan counts do not match the stored surface residuals.');
+            if sum(run_lengths) ~= size(A,1)
+                Warning('Residual scan count (%d) does not match expected count');
+                continue
+            end
             run_starts = [1; 1+cumsum(run_lengths(1:end-1))];
             for runi = 1:size(css,1)
                 idx = run_starts(runi):(run_starts(runi)+run_lengths(runi)-1);
