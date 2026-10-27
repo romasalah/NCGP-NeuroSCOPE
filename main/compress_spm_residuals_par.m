@@ -256,7 +256,10 @@ end
 function assertGzipMatchesSource(src, gz)
 % Verify one gzip archive by decompressing to a UNIQUE temporary folder.
 % This costs temporary disk space equal to one NIfTI PER active worker.
-    tempDir = tempname;
+    % Place decompressed verification files beside the source NIfTI,
+    % not on MATLAB's system temp drive (normally C: on Windows).
+    % This can temporarily require one uncompressed image per worker.
+    tempDir = tempname(fileparts(src));
     [ok,msg] = mkdir(tempDir);
     if ~ok
         error('Cannot create verification folder %s: %s', tempDir, msg);
@@ -299,4 +302,9 @@ function assertGzipMatchesSource(src, gz)
             break;
         end
     end
+
+    % Explicit destruction order is important on Windows. A temporary
+    % NIfTI cannot be removed while its fid2 handle is still open.
+    clear c2 c1;
+    clear cleanup;
 end
