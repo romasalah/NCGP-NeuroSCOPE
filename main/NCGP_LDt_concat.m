@@ -13,6 +13,7 @@ for si = 1:length(wf.sessions)
         allroinum      = length(curnbrhoods_idx);
         ldt_cv_avg     = cell(allroinum, length(wf.hemis));
         ldt_cv         = cell(allroinum, length(wf.hemis));
+        failed_counts   = zeros(allroinum,1);
         voxel_indices  = curnbrhoods_idx;
         Residuals_curroi = cell(allroinum,1);
         curnscans_subrun = nscans_subrun{si, hi};
@@ -34,7 +35,7 @@ for si = 1:length(wf.sessions)
         % Attach this file + dependencies used inside parfor:
         toAttach = {};
         thisFile = mfilename('fullpath');   if ~isempty(thisFile), toAttach{end+1} = [thisFile '.m']; end
-        f1 = which('NCGP_LDt_compute.m');   if ~isempty(f1), toAttach{end+1} = f1; end
+        f1 = which('NCGP_compute_ldc_all_training_runs.m');   if ~isempty(f1), toAttach{end+1} = f1; end
         f2 = which('parfor_progressbar.m'); if ~isempty(f2), toAttach{end+1} = f2; end
         if ~isempty(toAttach), addAttachedFiles(pool, toAttach); end
 
@@ -75,6 +76,7 @@ for si = 1:length(wf.sessions)
             Residuals_curroi{mi} = run_residuals;
 
             Faces_LDC = cell(length(cvo.TrainSize), 1);
+            nfailed_sl = 0;
             betasbycond_train = cell(length(cvo.TrainSize), 1);
             residuals_train   = cell(length(cvo.TrainSize), 1);
             betasbycond_test  = cell(length(cvo.TrainSize), 1);
@@ -91,10 +93,13 @@ for si = 1:length(wf.sessions)
                 % for each face pair, so excluded runs cannot enter covariance.
                 residuals_train{tri}   = run_residuals(trainruns);
 
-                Faces_LDC{tri} = compute_ldc_all_training_runs( ...
+                [Faces_LDC{tri}, nfailed] = NCGP_compute_ldc_all_training_runs( ...
                     betasbycond_train{tri}, betasbycond_test{tri}, ...
                     residuals_train{tri});
+                nfailed_sl = nfailed_sl + nfailed;
             end
+
+            failed_counts(mi) = nfailed_sl;
 
             % Stack and average across CV folds
             tmp = cat(3, Faces_LDC{:});
@@ -102,81 +107,11 @@ for si = 1:length(wf.sessions)
             ldt_cv_avg{mi,hi} = mean(tmp, 3);
         end
 
+        fprintf('Failed training discriminant vectors: %d\n', sum(failed_counts));
         delete(f)
-        save(ldt_fn{si,hi}, 'ldt_cv', 'ldt_cv_avg');
+        save(ldt_fn{si,hi}, 'ldt_cv', 'ldt_cv_avg', 'failed_counts');
         ldt_cv_avg_sess{si} = ldt_cv_avg;
         ldt_cv_sess{si}     = ldt_cv;
     end
 end
-end
-
-
-% Evaluate every usable training run separately, without first averaging
-% run-wise beta patterns. For each face pair, estimate noise covariance from
-% only the retained training runs (reusing it when other pairs retain the
-% same runs), and keep the held-out test run independent.
-%
-% NOTE: This is an all-training-run discriminant ensemble, NOT the joint
-% training-partition GLM used by Tsantani et al. (2019). Reproducing their
-% method requires refitting a GLM to original fMRI data for each fold.
-function dist = compute_ldc_all_training_runs(train_betas, test_betas, train_residuals)
-    nfeatures = size(train_betas,1);
-    ncond = size(train_betas,2);
-    ntrain = size(train_betas,3);
-    assert(isequal(size(test_betas), [nfeatures,ncond]), ...
-        'The held-out test pattern dimensions do not match training patterns.');
-
-    assert(iscell(train_residuals) && numel(train_residuals) == ntrain, ...
-        'Training residual cells must correspond to the training beta runs.');
-
-    % The valid-run mask can differ across face pairs. Cache covariance
-    % matrices when multiple pairs retain the same subset of training runs.
-    covariance_masks = {};
-    covariance_cache = {};
-    valid_residuals = cellfun(@(r) ~isempty(r) && ...
-        size(r,2) == nfeatures && all(isfinite(r(:))), train_residuals);
-    valid_residuals = valid_residuals(:).';  % Align with 1-by-ntrain mask
-
-    dist = zeros(ncond,ncond);
-    for c1 = 1:(ncond-1)
-        for c2 = (c1+1):ncond
-            % One column per training run, one row per searchlight feature.
-            train_delta = reshape( ...
-                double(train_betas(:,c1,:) - train_betas(:,c2,:)), ...
-                nfeatures,ntrain);
-
-            % Do not use sum(train_delta,1)~=0: nonzero differences may sum
-            % to zero through cancellation. A usable run must have a finite,
-            % nonzero contrast and valid residuals.
-            valid_runs = find(all(isfinite(train_delta),1) & ...
-                any(train_delta ~= 0,1) & valid_residuals);
-
-            if isempty(valid_runs)
-                dist(c1,c2) = NaN;
-                continue
-            end
-
-            cache_idx = find(cellfun(@(mask) isequal(mask, valid_runs), ...
-                covariance_masks), 1);
-            if isempty(cache_idx)
-                % Concatenate ONLY the residuals from retained training runs.
-                selected_residuals = vertcat(train_residuals{valid_runs});
-                Sigma = Function_covdiag(double(selected_residuals));
-                covariance_masks{end+1} = valid_runs;
-                covariance_cache{end+1} = Sigma;
-            else
-                Sigma = covariance_cache{cache_idx};
-            end
-
-            weights = Sigma \ train_delta(:,valid_runs);
-            lengths = sqrt(sum(weights.^2,1));
-            assert(all(isfinite(lengths) & lengths > 0), ...
-                'Non-finite or zero-length training discriminant.');
-            weights = weights ./ lengths;
-
-            test_delta = double(test_betas(:,c1) - test_betas(:,c2));
-            % Average projections over only the retained training runs.
-            dist(c1,c2) = mean(test_delta' * weights);
-        end
-    end
 end
