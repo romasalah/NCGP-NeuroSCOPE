@@ -85,7 +85,9 @@ for si = 1:length(wf.sessions)
                 % Each run contributes its own normalized discriminant.
                 betasbycond_train{tri} = betas_currroi(:,:,trainruns);
                 betasbycond_test{tri}  = betas_currroi(:,:,testruns);
-                residuals_train{tri}   = vertcat(run_residuals{trainruns});
+                % Keep residuals separate until invalid training runs are known
+                % for each face pair, so excluded runs cannot enter covariance.
+                residuals_train{tri}   = run_residuals(trainruns);
 
                 Faces_LDC{tri} = compute_ldc_all_training_runs( ...
                     betasbycond_train{tri}, betasbycond_test{tri}, ...
@@ -121,22 +123,55 @@ function dist = compute_ldc_all_training_runs(train_betas, test_betas, train_res
     assert(isequal(size(test_betas), [nfeatures,ncond]), ...
         'The held-out test pattern dimensions do not match training patterns.');
 
-    Sigma = Function_covdiag(double(train_residuals));
+    assert(iscell(train_residuals) && numel(train_residuals) == ntrain, ...
+        'Training residual cells must correspond to the training beta runs.');
+
+    % The valid-run mask can differ across face pairs. Cache covariance
+    % matrices when multiple pairs retain the same subset of training runs.
+    covariance_masks = {};
+    covariance_cache = {};
+    valid_residuals = cellfun(@(r) ~isempty(r) && ...
+        size(r,2) == nfeatures && all(isfinite(r(:))), train_residuals);
+
     dist = zeros(ncond,ncond);
     for c1 = 1:(ncond-1)
         for c2 = (c1+1):ncond
-            % Each column is an independent training run's face contrast.
+            % One column per training run, one row per searchlight feature.
             train_delta = reshape( ...
                 double(train_betas(:,c1,:) - train_betas(:,c2,:)), ...
                 nfeatures,ntrain);
-            weights = Sigma \ train_delta;
+
+            % Do not use sum(train_delta,1)~=0: nonzero differences may sum
+            % to zero through cancellation. A usable run must have a finite,
+            % nonzero contrast and valid residuals.
+            valid_runs = find(all(isfinite(train_delta),1) & ...
+                any(train_delta ~= 0,1) & valid_residuals);
+
+            if isempty(valid_runs)
+                dist(c1,c2) = NaN;
+                continue
+            end
+
+            cache_idx = find(cellfun(@(mask) isequal(mask, valid_runs), ...
+                covariance_masks), 1);
+            if isempty(cache_idx)
+                % Concatenate ONLY the residuals from retained training runs.
+                selected_residuals = vertcat(train_residuals{valid_runs});
+                Sigma = Function_covdiag(double(selected_residuals));
+                covariance_masks{end+1} = valid_runs;
+                covariance_cache{end+1} = Sigma;
+            else
+                Sigma = covariance_cache{cache_idx};
+            end
+
+            weights = Sigma \ train_delta(:,valid_runs);
             lengths = sqrt(sum(weights.^2,1));
             assert(all(isfinite(lengths) & lengths > 0), ...
                 'Non-finite or zero-length training discriminant.');
             weights = weights ./ lengths;
 
             test_delta = double(test_betas(:,c1) - test_betas(:,c2));
-            % Average held-out projections, not training beta patterns.
+            % Average projections over only the retained training runs.
             dist(c1,c2) = mean(test_delta' * weights);
         end
     end
