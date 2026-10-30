@@ -29,7 +29,7 @@ for si = 1:length(wf.sessions)
         % --- Make sure the pool exists and attach needed files to workers ---
         pool = gcp('nocreate');
         if isempty(pool)
-            pool = parpool(5);  % or wf.numWorkers if you have one
+            pool = parpool(8);  % or wf.numWorkers if you have one
         end
         % Attach this file + dependencies used inside parfor:
         toAttach = {};

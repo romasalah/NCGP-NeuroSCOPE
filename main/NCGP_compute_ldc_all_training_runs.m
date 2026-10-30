@@ -1,13 +1,12 @@
 % Compute LDC from all usable training runs, with covariance estimated
 % separately for each face pair from the matching training residuals.
 % The searchlight vertices and held-out test pattern are unchanged.
-function [dist, nfailed] = NCGP_compute_ldc_all_training_runs(train_betas, test_betas, train_residuals)
+function [dist] = NCGP_compute_ldc_all_training_runs(train_betas, test_betas, train_residuals)
 
 nfeatures = size(train_betas,1);
 ncond = size(train_betas,2);
 ntrain = size(train_betas,3);
 dist = zeros(ncond);
-nfailed = 0;
 
 % Residual cell i must correspond to training beta run i.
 valid_res = cellfun(@(r) ~isempty(r) && size(r,2)==nfeatures && ...
@@ -31,7 +30,6 @@ for c1 = 1:ncond-1
         Sigma = Function_covdiag(R);
 
         if any(~isfinite(Sigma(:)))
-            nfailed = nfailed + nnz(valid);
             dist(c1,c2) = NaN;
             continue
         end

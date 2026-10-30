@@ -51,9 +51,8 @@ for si = 1:length(wf.sessions)
         f = waitbar(0,'Please wait...');
         hbar = parfor_progressbar(allroinum, 'running LDC for all rois');
 
-       for mi = 1:allroinum
+       parfor (mi = 1:allroinum,12)
             hbar.iterate(1);
-
             betas_condbyrun2 = betas_condbyrun_c.Value;  % local handle
             betas_currroi = permute(betas_condbyrun2{mi}, [1 3 2]);
 
@@ -65,7 +64,8 @@ for si = 1:length(wf.sessions)
             run_residuals = cell(size(css,1),1);
             run_lengths = cell2mat(css(:,2));
             if sum(run_lengths) ~= size(A,1)
-                Warning('Residual scan count (%d) does not match expected count');
+                Warning('Residual scan count does not match expected count');
+                failed_counts(mi) = 1;
                 continue
             end
             run_starts = [1; 1+cumsum(run_lengths(1:end-1))];
@@ -76,7 +76,6 @@ for si = 1:length(wf.sessions)
             Residuals_curroi{mi} = run_residuals;
 
             Faces_LDC = cell(length(cvo.TrainSize), 1);
-            nfailed_sl = 0;
             betasbycond_train = cell(length(cvo.TrainSize), 1);
             residuals_train   = cell(length(cvo.TrainSize), 1);
             betasbycond_test  = cell(length(cvo.TrainSize), 1);
@@ -93,13 +92,11 @@ for si = 1:length(wf.sessions)
                 % for each face pair, so excluded runs cannot enter covariance.
                 residuals_train{tri}   = run_residuals(trainruns);
 
-                [Faces_LDC{tri}, nfailed] = NCGP_compute_ldc_all_training_runs( ...
+                [Faces_LDC{tri}] = NCGP_compute_ldc_all_training_runs( ...
                     betasbycond_train{tri}, betasbycond_test{tri}, ...
                     residuals_train{tri});
-                nfailed_sl = nfailed_sl + nfailed;
             end
 
-            failed_counts(mi) = nfailed_sl;
 
             % Stack and average across CV folds
             tmp = cat(3, Faces_LDC{:});
