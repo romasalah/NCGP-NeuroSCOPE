@@ -1,7 +1,7 @@
 % ==========================================================================
 % Overall goal (user-provided): Overall goal: Estimates threshold free cluster enhancement model using 10 thousand permutations. Options are SPM TFCE toolbox or MATLAB TFCE toolbox
 % ==========================================================================
-function g=NCGP_LDt_TFCE_estimate(wf,TFCEmethod, hemimasks,spmmats,maskname, curhemi, exch_blocks, contrast_idx, ds)
+function g=NCGP_LDt_TFCE_estimate(wf,TFCEmethod, hemimasks,spmmats,maskname, curhemi, exch_blocks)
 paths=NCGP_paths(wf);
 outputfolder=[paths.mp 'derivatives' filesep 'LDC' filesep 'group' filesep wf.pre filesep wf.glm filesep 'hemi-' curhemi '_mask-' maskname filesep];
 % Section: switch-block starts

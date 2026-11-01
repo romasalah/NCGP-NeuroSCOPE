@@ -1,7 +1,7 @@
 % Overall goal: Hardcodes a factorial design made of 16 between subject distance
 % images and 12 within subject distance images for before and after the intervention
 % (so 12 x 2 + 16 x 2 images). The factorial design is used later to estimate a TFCE model
-function [spmmat, curhemimask, sessdifft, postcontrastt]=NCGP_LDt_Factorial(wf,preb_vols,prew_vols,postb_vols,postw_vols,maskname,curhemi, conname )
+function [spmmat, curhemimask, exch_blocks_file]=NCGP_LDt_Factorial(wf,preb_vols,prew_vols,postb_vols,postw_vols,maskname,curhemi, conname )
 % Call → NCGP_paths
 paths=NCGP_paths(wf);
 inputfolder= [paths.mp 'derivatives' filesep 'LDC' filesep 'group' filesep wf.pre filesep wf.glm filesep 'hemi-' curhemi '_mask-' maskname filesep];
@@ -27,10 +27,11 @@ switch conname
             17:28  ...   % postW
             ]';
 
-        sessdiff_blocks_file = [outputfolder 'exchangeability_blocks_sessdiff.txt'];
+        exch_blocks_file = [outputfolder 'exchangeability_blocks_sessdiff.txt'];
 
-        writematrix(sessdiff_blocks, sessdiff_blocks_file);
+        writematrix(sessdiff_blocks, exch_blocks_file);
     case 'postcontrast'
+        exch_blocks_file='';
 end
 curhemimaskdir=dir([paths.hpal wf.origsubs{1} filesep 'ses-02' filesep 'func' filesep 'volumetric' filesep '*faces_run-01*' curhemi '.func_mask.nii']);
 if strcmp(maskname,'none')
@@ -58,71 +59,71 @@ matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).gmsca = 0;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(2).ancova = 0;
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(1).levels = [1
     1];
-matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(1).scans = {[ inputfolder 'preb_mask-none_hemi-' curhemi '_01.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_02.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_03.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_04.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_05.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_06.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_07.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_08.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_09.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_10.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_11.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_12.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_13.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_14.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_15.nii']
-    [ inputfolder 'preb_mask-none_hemi-' curhemi '_16.nii']
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(1).scans = {[ inputfolder 'preb_mask-none_hemi-' curhemi '_01.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_02.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_03.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_04.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_05.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_06.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_07.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_08.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_09.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_10.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_11.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_12.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_13.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_14.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_15.gii']
+    [ inputfolder 'preb_mask-none_hemi-' curhemi '_16.gii']
     };
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(3).levels = [2
     1];
-matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(3).scans = {[ inputfolder 'postb_mask-none_hemi-' curhemi '_01.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_02.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_03.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_04.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_05.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_06.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_07.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_08.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_09.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_10.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_11.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_12.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_13.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_14.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_15.nii']
-    [ inputfolder 'postb_mask-none_hemi-' curhemi '_16.nii']
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(3).scans = {[ inputfolder 'postb_mask-none_hemi-' curhemi '_01.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_02.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_03.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_04.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_05.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_06.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_07.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_08.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_09.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_10.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_11.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_12.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_13.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_14.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_15.gii']
+    [ inputfolder 'postb_mask-none_hemi-' curhemi '_16.gii']
     };
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(2).levels = [1
     2];
-matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(2).scans = {[ inputfolder 'prew_mask-none_hemi-' curhemi '_01.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_02.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_03.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_04.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_05.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_06.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_07.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_08.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_09.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_10.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_11.nii']
-    [ inputfolder 'prew_mask-none_hemi-' curhemi '_12.nii']
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(2).scans = {[ inputfolder 'prew_mask-none_hemi-' curhemi '_01.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_02.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_03.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_04.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_05.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_06.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_07.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_08.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_09.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_10.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_11.gii']
+    [ inputfolder 'prew_mask-none_hemi-' curhemi '_12.gii']
     };
 matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(4).levels = [2
     2];
-matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(4).scans = {[ inputfolder 'postw_mask-none_hemi-' curhemi '_01.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_02.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_03.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_04.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_05.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_06.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_07.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_08.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_09.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_10.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_11.nii']
-    [ inputfolder 'postw_mask-none_hemi-' curhemi '_12.nii']
+matlabbatch{1}.spm.stats.factorial_design.des.fd.icell(4).scans = {[ inputfolder 'postw_mask-none_hemi-' curhemi '_01.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_02.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_03.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_04.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_05.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_06.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_07.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_08.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_09.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_10.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_11.gii']
+    [ inputfolder 'postw_mask-none_hemi-' curhemi '_12.gii']
     };
 %%
 
@@ -178,7 +179,7 @@ switch conname
         save([outputfolder 'matlabbatch.mat'],'matlabbatch');
         % Toolbox call → spm_jobman
         spm_jobman( 'run', matlabbatch );
-        % sessdifft=[outputfolder 'con_0001_sessdiff.nii'];
+        % sessdifft=[outputfolder 'con_0001_sessdiff.gii'];
         % Call → NCGP_vol2surf
         %NCGP_vol2surf(wf, sessdifft, outputfolder, curhemi, 'a');
     case 'postcontrast'
@@ -190,11 +191,13 @@ switch conname
         matlabbatch{3}.spm.stats.con.delete = 1;
         matlabbatch{4}.spm.stats.results.spmmat = {[outputfolder 'SPM.mat']};
         matlabbatch{4}.spm.stats.results.conspec.contrasts = 1;
+        matlabbatch{4}.spm.stats.results.conspec.threshdesc = 'none';
+        matlabbatch{4}.spm.stats.results.conspec.mask.none = 1;
         matlabbatch{4}.spm.stats.results.conspec.thresh = 0.05;
         matlabbatch{4}.spm.stats.results.conspec.extent = 0;
         matlabbatch{4}.spm.stats.results.units = 1;
         matlabbatch{4}.spm.stats.results.export{1}.tspm.basename = 'postcontrast';
-        matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {''};
+        %matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {''};
         if ~strcmp(maskname,'none')
             matlabbatch{4}.spm.stats.results.conspec.threshdesc = maskname;
             matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {curhemimask};
@@ -202,7 +205,7 @@ switch conname
         end
         % Toolbox call → spm_jobman
         spm_jobman( 'run', matlabbatch );
-        % postcontrastt=[outputfolder 'con_0002_postcontrast.nii'];
+        % postcontrastt=[outputfolder 'con_0002_postcontrast.gii'];
         % Call → NCGP_vol2surf
        % NCGP_vol2surf(wf, postcontrastt, outputfolder, curhemi, 'a');
 end

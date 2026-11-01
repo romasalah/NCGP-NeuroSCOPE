@@ -32,12 +32,12 @@ elseif Step==2
     %% Create workflows
     wf2=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
-    wf2.sessions={ 'ses-02'};
+    wf2.sessions={ 'ses-02','ses-03'};
     [faces_runs]=NCGP_onsets_faces(wf2);
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
     %% Hypothesis 1
     % Compute pre vs post session differences (e.g., between-/within-group LDt change).
-    [wf2.targetRSM_pre, wf2.targetRSM_post, taskname]=NCGP_prepost(wfbehav,1);
+    [wf2.targetRSM_pre, wf2.targetRSM_post, taskname]=NCGP_prepost(wfbehav,0);
     %% 
     %% Searchlights: Neighbourhoods, Betas , and Residuals
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
@@ -54,7 +54,7 @@ elseif Step==2
     % NCGP_plot_lDt(wf2,nbrhood_e in discriminability scores
     % >>>>>>>Whole Brain<<<<<<<<spm fmri
     % Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
-    [ statresults,signodes_surf]=NCGP_LDt_stats(wf2, 'none', 'TFCE',ds, ldt_avgruns);
+    %[ statresults,signodes_surf]=NCGP_LDt_stats(wf2, 'none', 'TFCE',ds, ldt_avgruns);
 
     [ statresults,signodes_surf]=NCGP_LDt_stats_prepost(wf2, 'none', ldt_avgruns);
     % Plot and store MDS from LDt distances for visualization.

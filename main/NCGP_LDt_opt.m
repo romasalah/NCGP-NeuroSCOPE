@@ -14,7 +14,7 @@ if isempty(pool) || ~isa(pool, 'parallel.ThreadPool')
     if ~isempty(pool)
         delete(pool);
     end
-    pool = parpool('Threads', 10);
+    pool = parpool('Threads', 22);
 end
 
 for si = 1:length(wf.sessions)
