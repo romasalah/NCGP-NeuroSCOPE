@@ -60,10 +60,16 @@ for si = 1:length(wf.sessions)
             beta_loc{si,hi}{subi} = [mainPath 'derivatives' filesep wf.glm filesep persons{subi} filesep wf.pre filesep  'task-' wf.task '_' cursession '_hemi-' curhemi '_smooth-' wf.smooth '_onsets-' onsets filesep];
             regressor_names = design_from_spm(beta_loc{si,hi}{subi});
             fnst = decoding_describe_data({},baselabelnames,baseclasses,regressor_names,beta_loc{si,hi}{subi});
+            model = load(fullfile(beta_loc{si,hi}{subi},'SPM.mat'),'SPM');
+            model_runs = numel(model.SPM.Sess);
+            assert(numel(fnst.files.chunk) == 8*model_runs && ...
+                isequal(unique(fnst.files.chunk(:))',(1:model_runs)), ...
+                'Missing or mislabelled condition betas for %s',cursub);
             conbetas{si,hi}=vertcat(conbetas{si,hi}, ...
                 [fnst.files.name num2cell(fnst.files.chunk+lastchunkinsub)...
                 num2cell(fnst.files.label) ]);
-            lastchunkinsub=lastchunkinsub+cursubruns_num;
+            % Offset by modeled beta runs, not the number planned in faces_runs.
+            lastchunkinsub=lastchunkinsub+max(fnst.files.chunk);
         end
         %         %% Convert betas from volumes to 4D surface and save it
         pial_fn=fullfile(alignedsurf_path, [ lower(curhemi) 'h.pial.asc']);
@@ -120,6 +126,10 @@ for si = 1:length(wf.sessions)
         for subi = 1:length(persons)
             curbetalocs = beta_loc{si,hi}{subi};
             resdir = dir([curbetalocs 'Res_*.nii.gz']);
+            model = load(fullfile(curbetalocs,'SPM.mat'),'SPM');
+            expected_res = sum(cellfun(@numel,{model.SPM.Sess.row}));
+            assert(numel(resdir) == expected_res, ...
+                'Residual image count mismatch for %s',persons{subi});
             % Reset the array for each participant
             resdset_list = cell(length(resdir),1);
             for ri = 1:length(resdir)
@@ -143,7 +153,7 @@ for si = 1:length(wf.sessions)
         %% define searchlights for each feature (voxel).
         disp(['Defining Neighborhoods']);
         % Toolbox call → cosmo_surface_dataset
-        betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',classes,'chunks',chunks);
+        betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',targets,'chunks',chunks);
         
         % Toolbox call → cosmo_surficial_neighborhood
         [allnbrhood_frombetas,vo,fo,out2in]=cosmo_surficial_neighborhood(betasds,{pial_fn},'radius',radius);
