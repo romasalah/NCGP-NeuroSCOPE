@@ -63,7 +63,8 @@ for si = 1:length(wf.sessions)
             conbetas{si,hi}=vertcat(conbetas{si,hi}, ...
                 [fnst.files.name num2cell(fnst.files.chunk+lastchunkinsub)...
                 num2cell(fnst.files.label) ]);
-            lastchunkinsub=lastchunkinsub+cursubruns_num;
+            % Offset by modeled beta runs, not the number planned in faces_runs.
+            lastchunkinsub=lastchunkinsub+max(fnst.files.chunk);
         end
         %         %% Convert betas from volumes to 4D surface and save it
         pial_fn=fullfile(alignedsurf_path, [ lower(curhemi) 'h.pial.asc']);
@@ -143,7 +144,7 @@ for si = 1:length(wf.sessions)
         %% define searchlights for each feature (voxel).
         disp(['Defining Neighborhoods']);
         % Toolbox call → cosmo_surface_dataset
-        betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',classes,'chunks',chunks);
+        betasds = cosmo_surface_dataset(dssurf_betasfn,'targets',targets,'chunks',chunks);
         
         % Toolbox call → cosmo_surficial_neighborhood
         [allnbrhood_frombetas,vo,fo,out2in]=cosmo_surficial_neighborhood(betasds,{pial_fn},'radius',radius);
