@@ -32,19 +32,33 @@ globalscanslimit=min(cell2mat(nscans_subrun(:,3)));
 for ri2=1:size(nscans_subrun,1)
 nscans_subrun{ri2, 5} = globalscanslimit;
 end
-if presaved_betas_flag == 1
-if exist(betasfn, 'file') ==2
-    warning("Using Saved beta values for each searchlight. Please double check that they are not outdated.")
-    %load(betasfn)
-    return
-end
-end
 %% loop over the searchlights
 betas_condbyrun=cell(length(nbrhood_sl), length(wf.hemis));
 %res_condbyrun=cell(length(nbrhood_sl), length(wf.hemis));
 hbar = parfor_progressbar(length(nbrhood_sl),'Extracting beta values and residuals from searchlights');  %create the progress bar
 % Toolbox call → cosmo_split
 dsbycond=cosmo_split(betasds,'targets',1); % Split the dataset by condition
+% All eight conditions must contain the same modeled runs in the same order.
+beta_run_chunks = dsbycond{1}.sa.chunks(:);
+nruns = size(nscans_subrun,1);
+assert(numel(beta_run_chunks) == nruns && ...
+    isequal(beta_run_chunks,(1:nruns)'), ...
+    'Beta run IDs do not match the SPM residual-run order.');
+for ci = 2:numel(dsbycond)
+    assert(isequal(dsbycond{ci}.sa.chunks(:),beta_run_chunks), ...
+        'Conditions do not have the same runs in the same order.');
+end
+if presaved_betas_flag == 1 && exist(betasfn,'file') == 2
+    info = whos('-file',betasfn);
+    if any(strcmp({info.name},'beta_run_chunks'))
+        cached = load(betasfn,'beta_run_chunks');
+        if isequal(cached.beta_run_chunks(:),beta_run_chunks)
+            return
+        end
+    end
+    warning('Rebuilding beta cache because its run metadata is missing or outdated.');
+end
+
 % Section: for-block starts
 for ci =1:size(dsbycond,2)
     dsbycond_mat(:,:,ci)=dsbycond{ci}.samples;
@@ -61,5 +75,5 @@ parfor roii=1:length(nbrhood_sl)
     end
 end
 close(hbar);
-save(betasfn, 'betas_condbyrun', 'allres', '-v7.3');
+save(betasfn, 'betas_condbyrun', 'allres', 'beta_run_chunks', '-v7.3');
 end
