@@ -172,7 +172,7 @@ switch conname
         matlabbatch{4}.spm.stats.results.export{1}.tspm.basename = 'sessdiff';
         %matlabbatch{4}.spm.stats.results.conspec.mask.image.name = '';
         if ~strcmp(maskname,'none')
-            matlabbatch{4}.spm.stats.results.conspec.threshdesc = maskname;
+            matlabbatch{4}.spm.stats.results.conspec.mask = struct();
             matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {curhemimask};
             matlabbatch{4}.spm.stats.results.conspec.mask.image.mtype = 0;
         end
@@ -199,7 +199,7 @@ switch conname
         matlabbatch{4}.spm.stats.results.export{1}.tspm.basename = 'postcontrast';
         %matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {''};
         if ~strcmp(maskname,'none')
-            matlabbatch{4}.spm.stats.results.conspec.threshdesc = maskname;
+            matlabbatch{4}.spm.stats.results.conspec.mask = struct();
             matlabbatch{4}.spm.stats.results.conspec.mask.image.name = {curhemimask};
             matlabbatch{4}.spm.stats.results.conspec.mask.image.mtype = 0;
         end
