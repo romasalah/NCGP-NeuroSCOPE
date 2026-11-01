@@ -40,9 +40,11 @@ else
     curhemimask=[curhemimaskdir.folder filesep curhemimaskdir.name];
 end
 %%
-spm( 'defaults', 'fmri' );
-% Toolbox call → spm_jobman
-spm_jobman( 'initcfg' );
+% Close any previous SPM session and initialise SPM for this factorial design.
+% Note: spm('Quit') also closes other MATLAB figures and clears the Command Window.
+spm('Quit');
+spm('defaults','fmri');
+spm_jobman('initcfg');
 clear matlabbatch
 matlabbatch{1}.spm.stats.factorial_design.dir = {outputfolder};
 matlabbatch{1}.spm.stats.factorial_design.des.fd.fact(1).name = 'Time';
