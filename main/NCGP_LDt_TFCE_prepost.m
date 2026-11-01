@@ -10,9 +10,9 @@ function signodes_surf=NCGP_LDt_TFCE_prepost(wf, LDCvals,oldds,curhemi, maskname
 % Call → NCGP_LDt_Factorial_postcontrast
 [spmmat_pc, hemimasks_pc]=NCGP_LDt_Factorial(wf,preb_vols,prew_vols,postb_vols,postw_vols, maskname, curhemi, 'postcontrast');
 % Call → NCGP_LDt_TFCE_estimate_sd
-NCGP_LDt_TFCE_estimate(wf, 'SPM',hemimasks_sd,spmmat_sd,maskname,curhemi, exch_blocks_sd, 1, oldds);
+NCGP_LDt_TFCE_estimate(wf, 'SPM',hemimasks_sd, spmmat_sd, maskname, curhemi, exch_blocks_sd);
 % Call → NCGP_LDt_TFCE_estimate_pc
-NCGP_LDt_TFCE_estimate(wf, 'SPM',hemimasks_pc,spmmat_pc,maskname,curhemi, {}, 1, oldds);
+NCGP_LDt_TFCE_estimate(wf, 'SPM',hemimasks_pc, spmmat_pc, maskname, curhemi, {});
 % Call → NCGP_LDt_TFCE_vol2surf
 signodes_surf=NCGP_LDt_TFCE_vol2surf(wf, maskname,curhemi);
 

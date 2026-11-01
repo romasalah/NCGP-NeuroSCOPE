@@ -38,9 +38,9 @@ switch TFCEmethod
     case 'SPM'
         % Section: for-block starts
         for hi =1:length(wf.hemis)
-            spm( 'defaults', 'fmri' );
-            % Toolbox call → spm_jobman
-            spm_jobman( 'initcfg' );
+            spm('Quit');
+            spm('defaults','fmri');
+            spm_jobman('initcfg');
             clear matlabbatch
             matlabbatch{1}.spm.tools.tfce_estimate.data = {spmmats};
             matlabbatch{1}.spm.tools.tfce_estimate.nproc = 20;
