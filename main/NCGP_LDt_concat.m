@@ -19,7 +19,9 @@ for si = 1:numel(wf.sessions)
     ldt_cv_avg = cell(0,numel(wf.hemis));
 
     for hi = 1:numel(wf.hemis)
-        S = load(betasfn{si,hi},'betas_condbyrun','allres');
+        S = load(betasfn{si,hi},'betas_condbyrun','allres','beta_run_chunks');
+        assert(isfield(S,'beta_run_chunks'), ...
+            'Rebuild the beta cache to verify beta/residual run alignment.');
         betas = S.betas_condbyrun;
         allres = S.allres;
         voxels = nbrhoods_idx{si,hi};
@@ -29,8 +31,9 @@ for si = 1:numel(wf.sessions)
         ncond = size(betas{1},3);
         run_lengths = cell2mat(css(:,2));
         assert(ncond == 8, 'Expected eight face conditions.');
-        assert(numel(run_lengths) == nrun, ...
-            'Beta and residual run counts differ. Check missing runs and ordering.');
+        assert(numel(run_lengths) == nrun && ...
+            isequal(S.beta_run_chunks(:),(1:nrun)'), ...
+            'Beta and residual run IDs differ. Check missing runs and ordering.');
         assert(sum(run_lengths) == size(allres,1), ...
             'Residual scan counts do not match the SPM run metadata.');
 
