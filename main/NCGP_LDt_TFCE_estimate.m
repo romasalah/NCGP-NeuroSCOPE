@@ -49,7 +49,18 @@ switch TFCEmethod
             matlabbatch{1}.spm.tools.tfce_estimate.conspec.n_perm = 10000;
             matlabbatch{1}.spm.tools.tfce_estimate.nuisance_method = 0;
             matlabbatch{1}.spm.tools.tfce_estimate.tbss = 0;
-            matlabbatch{1}.spm.tools.tfce_estimate.exch_blocks = exch_blocks;
+            if isempty(exch_blocks)
+                matlabbatch{1}.spm.tools.tfce_estimate.exch_blocks = {};
+            else
+                if ischar(exch_blocks) || isstring(exch_blocks)
+                    exch_blocks = {char(exch_blocks)};
+                end
+
+                assert(iscellstr(exch_blocks) && numel(exch_blocks)==1);
+                assert(isfile(exch_blocks{1}), 'Exchangeability file not found');
+
+                matlabbatch{1}.spm.tools.tfce_estimate.exch_blocks = exch_blocks;
+            end            
             matlabbatch{1}.spm.tools.tfce_estimate.singlrthreaded = 0;
             % Toolbox call → spm_jobman
             spm_jobman( 'run', matlabbatch );
