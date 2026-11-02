@@ -34,13 +34,9 @@ writetable(cursubtbl,[behavoutputfolder 'LMM' exc_str '_subjectbased.csv'])
 writetable(alltbls,[behavoutputfolder 'LMM' exc_str '.csv'])
 %% Get ratings
 % Call → NCGP_facesim_ratings_alltasks
-[alltasksmat_pre,allingpsim_pre,alloutgpsim_pre,allbtgpsim_pre,allingpsim_distavg_pre,alloutgpsim_distavg_pre, allbtgpsim_distavg_pre]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_pre,allgpnames,'pre',wf.exp);
+[alltasksmat_pre, alltasksmat_pre_RDM, allingpsim_pre,alloutgpsim_pre,allbtgpsim_pre,allingpsim_distavg_pre,alloutgpsim_distavg_pre, allbtgpsim_distavg_pre]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_pre,allgpnames,'pre',wf.exp);
 % Call → NCGP_facesim_ratings_alltasks
-[alltasksmat_post,allingpsim_post,alloutgpsim_post,allbtgpsim_post,allingpsim_distavg_post,alloutgpsim_distavg_post, allbtgpsim_distavg_post]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_post,allgpnames,'post',wf.exp);
-for i = 1:3
-alltasksmat_pre_RDM{i} = 8 - alltasksmat_pre{i};
-alltasksmat_post_RDM{i} = 8 - alltasksmat_post{i};
-end
+[alltasksmat_post, alltasksmat_post_RDM, allingpsim_post,alloutgpsim_post,allbtgpsim_post,allingpsim_distavg_post,alloutgpsim_distavg_post, allbtgpsim_distavg_post]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_post,allgpnames,'post',wf.exp);
 %% plot ratings
 % Section: if-block starts
 if plotflag==1

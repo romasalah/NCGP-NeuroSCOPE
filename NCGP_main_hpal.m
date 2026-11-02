@@ -37,7 +37,7 @@ elseif Step==2
     wf2.origsubs=wf2.subs;wf2.subs={'group'};
     %% Hypothesis 1
     % Compute pre vs post session differences (e.g., between-/within-group LDt change).
-    [~, ~, wf2.targetRDM_pre, wf2.targetRDM_post, taskname]=NCGP_prepost(wfbehav,0);
+    [targetRSM_pre, targetRSM_post, wf2.targetRDM_pre, wf2.targetRDM_post, taskname]=NCGP_prepost(wfbehav,0);
     %% 
     %% Searchlights: Neighbourhoods, Betas , and Residuals
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...

@@ -1,6 +1,6 @@
 % Overall goal: takes similarity ratings of personality, social life and
 % physical apperance from before and after the intervention and calculates the difference
-function [alltasksmat,allingpsim_vals,alloutgpsim_vals,allbtgpsim_vals,allingpsim_distavg,alloutgpsim_distavg,allbtgpsim_distavg]=NCGP_facesim_ratings_alltasks(subs,allfacesimtbl,allgpnames,timedata,exp)
+function [alltasksmat,alltasksmat_RDM, allingpsim_vals,alloutgpsim_vals,allbtgpsim_vals,allingpsim_distavg,alloutgpsim_distavg,allbtgpsim_distavg]=NCGP_facesim_ratings_alltasks(subs,allfacesimtbl,allgpnames,timedata,exp)
 alltaskssim={};
 p1p2_col=4:5;
 facial_col=6;
@@ -19,9 +19,11 @@ for subi=1:length(subs)
 end
 fixedgpnames= {'AH1', 'AH2', 'AH3', 'AH4', 'NAT1', 'NAT2', 'NAT3', 'NAT4'};
 for tsi= 1:3
-    corrlist0=[];   
+    simratings=[];  
+    dissimratings=[];
     for subi=1:length(subs)
-        corrlist0(:,:,subi)=zeros(8,8);
+        simratings(:,:,subi)=zeros(8,8);
+        dissimratings(:,:,subi)=zeros(8,8);
         curtasktb=alltaskssim{tsi}{subi};
         for p1=1:8 
             for p2=1:8 
@@ -32,12 +34,14 @@ for tsi= 1:3
                     assert(~isempty(currow), ...
                         'Missing behavioral rating: %s vs %s, participant %d', ...
                         p1name,p2name,subi);
-                    corrlist0(p1,p2,subi)=mean([curtasktb{currow,3}]);
+                    simratings(p1,p2,subi)=mean([curtasktb{currow,3}]);
+                    dissimratings(p1,p2,subi)= 8 - simratings(p1,p2,subi);
                 end
             end
         end
     end
-    alltasksmat{tsi}=corrlist0;
+    alltasksmat{tsi}=simratings;
+    alltasksmat_RDM{tsi}=dissimratings;
 end
 
 
