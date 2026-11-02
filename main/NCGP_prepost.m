@@ -2,7 +2,7 @@
 % Overall goal: Compute pre vs post session differences (e.g., between-/within-group LDt change).
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % ==========================================================================
-function [alltasksmat_pre, alltasksmat_post,taskname]=NCGP_prepost(wf, plotflag)
+function [alltasksmat_pre, alltasksmat_post,alltasksmat_pre_RDM, alltasksmat_post_RDM, taskname]=NCGP_prepost(wf, plotflag)
 %close all;
 %% settings
 taskname={'Physical','Personality','Social life'};
@@ -37,6 +37,10 @@ writetable(alltbls,[behavoutputfolder 'LMM' exc_str '.csv'])
 [alltasksmat_pre,allingpsim_pre,alloutgpsim_pre,allbtgpsim_pre,allingpsim_distavg_pre,alloutgpsim_distavg_pre, allbtgpsim_distavg_pre]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_pre,allgpnames,'pre',wf.exp);
 % Call → NCGP_facesim_ratings_alltasks
 [alltasksmat_post,allingpsim_post,alloutgpsim_post,allbtgpsim_post,allingpsim_distavg_post,alloutgpsim_distavg_post, allbtgpsim_distavg_post]=NCGP_facesim_ratings_alltasks(validids_pre,allfacesimtbls_post,allgpnames,'post',wf.exp);
+for i = 1:3
+alltasksmat_pre_RDM{i} = 8 - alltasksmat_pre{i};
+alltasksmat_post_RDM{i} = 8 - alltasksmat_post{i};
+end
 %% plot ratings
 % Section: if-block starts
 if plotflag==1

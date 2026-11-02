@@ -44,7 +44,7 @@ switch wfname
         wf.glmresiduals=1;
         wf.hemis=hemis;
         wf.pre='fmriprep';wf.decoding='Cosmo_surfdecoding';wf.stats='perm_stats';wf.glm='SPM_GLM';wf.mcc='TFCE_MCC';
-        wf.radius=10; wf.classifier='libsvm';
+        wf.radius=5; wf.classifier='libsvm';
 % Call → NCGP_osdir: Project function call
         wf.mainpath=NCGP_osdir(wf.exp);
         wf.t1folder=[wf.mainpath wf.pre filesep 'fsaverage6' filesep 'T1' filesep];

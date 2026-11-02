@@ -13,7 +13,7 @@ end
 
 for ti = 1:length(taskname)
     curtaskname=taskname{ti};
-    wf2.curRDM=  mean(wf2.targetRSM_post{ti},3);
+    wf2.curRDM=  mean(wf2.targetRDM_post{ti},3);
     %% Correlation of LDC values and behavioural RDM
     % Call → NCGP_RDMcorr: Compute correlations between behavioral RDMs (physical/personality/social) and neural LDt per searchlight.
     [LDtcorr{ti}, LDtcorr_pval{ti}, sigidx{ti}, sigidx_coefs{ti}] = NCGP_RDMcorr(wf2, LDt_byrun, wf2.curRDM, wf2.RDMcorr.Method, wf2.RDMcorr.htail, wf2.RDMcorr.alpha); % LDt from all CrossValidation runs
