@@ -47,6 +47,14 @@ for si = 1:numel(wf.sessions)
         fprintf('Session %s, hemisphere %s: %d runs, %d searchlights\n', ...
             wf.sessions{si}, wf.hemis{hi}, nrun, nroi);
 
+        % Receive progress updates on the client, without temporary files.
+        completed = 0;
+        progress_total = nroi;
+        progress_started = tic;
+        progressbar = waitbar(0,sprintf('0/%d searchlights',nroi));
+        q = parallel.pool.DataQueue;
+        afterEach(q,@update_progress);
+
         parfor (mi = 1:nroi,22)
             B = permute(betas{mi},[1 3 2]); % vertices x 8 conditions x runs
             R = double(allres(:,voxels{mi}));
@@ -69,8 +77,10 @@ for si = 1:numel(wf.sessions)
             avg{mi} = mean(folds,3,'omitnan');
             valid_fold_counts{mi} = sum(isfinite(folds),3);
             failed_counts(mi) = nfailed;
+            send(q,1);
         end
 
+        if isgraphics(progressbar), close(progressbar); end
         ldt_cv(1:nroi,hi) = cv;
         ldt_cv_avg(1:nroi,hi) = avg;
 
@@ -88,4 +98,16 @@ for si = 1:numel(wf.sessions)
     ldt_cv_sess{si} = ldt_cv;
     ldt_cv_avg_sess{si} = ldt_cv_avg;
 end
+
+    function update_progress(~)
+        completed = completed + 1;
+        step = max(1,ceil(progress_total/100));
+        if isgraphics(progressbar) && ...
+                (mod(completed,step) == 0 || completed == progress_total)
+            remaining = toc(progress_started)/completed*(progress_total-completed);
+            waitbar(completed/progress_total,progressbar, ...
+                sprintf('%d/%d searchlights (%.0f%%), ~%.0f min left', ...
+                completed,progress_total,100*completed/progress_total,remaining/60));
+        end
+    end
 end
