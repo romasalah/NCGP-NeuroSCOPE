@@ -1,0 +1,228 @@
+function report = uncompress_spm_betas_par(datasetDir, dryRun, minAgeMinutes, numWorkers)
+%UNCOMPRESS_SPM_BETAS_PAR Restore SPM beta_XXXX.nii from .nii.gz archives.
+%
+% report = uncompress_spm_betas_par(datasetDir)
+% report = uncompress_spm_betas_par(datasetDir, dryRun, minAgeMinutes, numWorkers)
+%
+% Recursively finds beta_XXXX.nii.gz (exactly four digits) and restores
+% beta_XXXX.nii beside each archive. THE .NII.GZ IS NEVER DELETED.
+% Existing .nii files are skipped, never overwritten.
+%
+% Inputs:
+%   datasetDir       Root folder, including nested directories.
+%   dryRun           Preview only (default false).
+%   minAgeMinutes    Skip archives modified less than this many minutes
+%                    ago (default 60; set to 0 to process all archives).
+%   numWorkers       Parallel workers (default existing pool, otherwise
+%                    up to 4). Use 1 for serial processing.
+%
+% Examples:
+%   uncompress_spm_betas_par('D:\Omar\NCGP\data\derivatives', true);
+%   r = uncompress_spm_betas_par('D:\Omar\NCGP\data\derivatives', false, 0, 4);
+%
+% Do not run while another process is creating or replacing these files.
+% Extraction is staged in a unique folder next to each archive, not in
+% the system temporary directory. Decompression verifies gzip integrity.
+
+    if nargin < 1 || isempty(datasetDir)
+        error('Provide the root dataset directory.');
+    end
+    if nargin < 2 || isempty(dryRun)
+        dryRun = false;
+    end
+    if nargin < 3 || isempty(minAgeMinutes)
+        minAgeMinutes = 60;
+    end
+    if nargin < 4
+        numWorkers = [];
+    end
+
+    if ~islogical(dryRun) || ~isscalar(dryRun)
+        error('dryRun must be a scalar logical.');
+    end
+    if ~isnumeric(minAgeMinutes) || ~isscalar(minAgeMinutes) || ...
+            ~isfinite(minAgeMinutes) || minAgeMinutes < 0
+        error('minAgeMinutes must be a nonnegative number.');
+    end
+    if ~isempty(numWorkers) && (~isnumeric(numWorkers) || ...
+            ~isscalar(numWorkers) || ~isfinite(numWorkers) || ...
+            numWorkers < 1 || numWorkers ~= floor(numWorkers))
+        error('numWorkers must be a positive integer.');
+    end
+
+    datasetDir = char(datasetDir);
+    if ~isfolder(datasetDir)
+        error('Directory does not exist: %s', datasetDir);
+    end
+
+    rootFiles = dir(fullfile(datasetDir, 'beta_*.nii.gz'));
+    subFiles  = dir(fullfile(datasetDir, '**', 'beta_*.nii.gz'));
+    files = [rootFiles; subFiles];
+
+    paths = cell(0,1);
+    for k = 1:numel(files)
+        if ~files(k).isdir && ~isempty(regexp(files(k).name, ...
+                '^beta_[0-9]{4}\.nii\.gz$', 'once'))
+            paths{end+1,1} = fullfile(files(k).folder, files(k).name); %#ok<AGROW>
+        end
+    end
+    paths = unique(paths, 'stable');
+    n = numel(paths);
+
+    report = struct('found', n, 'decompressed', 0, ...
+        'skippedExisting', 0, 'skippedRecent', 0, 'previewed', 0, ...
+        'disappeared', 0, 'failed', 0, 'bytesRestored', 0, ...
+        'parallelWorkers', 0, 'elapsedSeconds', 0);
+
+    fprintf('Found %d compressed SPM beta files in %s\n', n, datasetDir);
+    if n == 0
+        return;
+    end
+
+    tAll = tic;
+    results = cell(n,1);
+
+    if dryRun
+        fprintf('DRY RUN: No files will be changed.\n');
+        for k = 1:n
+            results{k} = restoreOneBeta(paths{k}, minAgeMinutes, true);
+        end
+    else
+        if isempty(numWorkers)
+            pool = gcp('nocreate');
+            if isempty(pool)
+                cluster = parcluster('local');
+                numWorkers = min(4, cluster.NumWorkers);
+            else
+                numWorkers = pool.NumWorkers;
+            end
+        end
+
+        if numWorkers == 1
+            report.parallelWorkers = 1;
+            fprintf('Serial decompression.\n');
+            for k = 1:n
+                results{k} = restoreOneBeta(paths{k}, minAgeMinutes, false);
+            end
+        else
+            pool = gcp('nocreate');
+            if isempty(pool)
+                pool = parpool('local', numWorkers);
+            elseif pool.NumWorkers ~= numWorkers
+                warning('Existing pool has %d workers; using it instead of %d.', ...
+                    pool.NumWorkers, numWorkers);
+            end
+            report.parallelWorkers = pool.NumWorkers;
+            fprintf('Parallel decompression using %d workers.\n', ...
+                report.parallelWorkers);
+            parfor k = 1:n
+                results{k} = restoreOneBeta(paths{k}, minAgeMinutes, false);
+            end
+        end
+    end
+
+    for k = 1:n
+        result = results{k};
+        report.bytesRestored = report.bytesRestored + result.bytesRestored;
+        report.(result.status) = report.(result.status) + 1;
+        if strcmp(result.status, 'failed')
+            fprintf(2, '%s\n', result.message);
+        else
+            fprintf('%s\n', result.message);
+        end
+    end
+    report.elapsedSeconds = toc(tAll);
+    fprintf('\nRestored=%d, existing=%d, recent=%d, previewed=%d, ', ...
+        report.decompressed, report.skippedExisting, ...
+        report.skippedRecent, report.previewed);
+    fprintf('disappeared=%d, failed=%d\n', report.disappeared, report.failed);
+    fprintf('Restored: %.2f GiB; workers=%d; elapsed=%.1f s\n', ...
+        report.bytesRestored / 1024^3, ...
+        report.parallelWorkers, report.elapsedSeconds);
+end
+
+function result = restoreOneBeta(gz, minAgeMinutes, dryRun)
+% Restore one archive without changing the archive or existing .nii files.
+    result = struct('status', 'failed', 'bytesRestored', 0, 'message', '');
+    target = gz(1:end-3);  % beta_XXXX.nii
+
+    info = dir(gz);
+    if isempty(info)
+        result.status = 'disappeared';
+        result.message = sprintf('[SKIP disappeared] %s', gz);
+        return;
+    end
+    if isfile(target)
+        result.status = 'skippedExisting';
+        result.message = sprintf('[SKIP existing .nii] %s', target);
+        return;
+    end
+    if (now - info.datenum) * 24 * 60 < minAgeMinutes
+        result.status = 'skippedRecent';
+        result.message = sprintf('[SKIP recent archive] %s', gz);
+        return;
+    end
+    if dryRun
+        result.status = 'previewed';
+        result.message = sprintf('[WOULD DECOMPRESS, keep .gz] %s', gz);
+        return;
+    end
+
+    % Place staging data on the same filesystem, avoiding system temp.
+    tempDir = tempname(fileparts(gz));
+    try
+        [ok, msg] = mkdir(tempDir);
+        if ~ok
+            error('Cannot create staging directory %s: %s', tempDir, msg);
+        end
+        cleanup = onCleanup(@() cleanupFolder(tempDir)); %#ok<NASGU>
+
+        extracted = gunzip(gz, tempDir); % gunzip leaves the .gz untouched
+        if numel(extracted) ~= 1 || ~isfile(extracted{1})
+            error('Archive did not produce exactly one NIfTI: %s', gz);
+        end
+
+        current = dir(gz);
+        if isempty(current) || current.bytes ~= info.bytes || ...
+                current.datenum ~= info.datenum
+            error('Archive changed during extraction: %s', gz);
+        end
+        if isfile(target)
+            result.status = 'skippedExisting';
+            result.message = sprintf('[SKIP .nii appeared] %s', target);
+            return;
+        end
+
+        % Do NOT pass the force flag. Never overwrite an existing .nii.
+        [ok, msg] = movefile(extracted{1}, target);
+        if ~ok
+            error('Cannot restore %s: %s', target, msg);
+        end
+
+        restored = dir(target);
+        if isempty(restored) || restored.bytes == 0
+            error('Restored NIfTI is missing or empty: %s', target);
+        end
+        result.status = 'decompressed';
+        result.bytesRestored = restored.bytes;
+        result.message = sprintf('[RESTORED .nii, KEPT .gz] %s', target);
+    catch ME
+        result.status = 'failed';
+        result.message = sprintf('[FAILED, .gz retained] %s\n  %s', ...
+            gz, ME.message);
+        % The unique staging directory is removed by onCleanup if created.
+        if ~exist('cleanup', 'var') && isfolder(tempDir)
+            cleanupFolder(tempDir);
+        end
+    end
+end
+
+function cleanupFolder(folder)
+    if isfolder(folder)
+        try
+            rmdir(folder, 's');
+        catch ME
+            warning('Cannot remove staging folder %s: %s', folder, ME.message);
+        end
+    end
+end
