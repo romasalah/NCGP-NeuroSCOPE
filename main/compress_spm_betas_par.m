@@ -1,10 +1,10 @@
 function report = compress_spm_residuals_par(datasetDir, dryRun, minAgeMinutes, numWorkers)
-%COMPRESS_SPM_RESIDUALS Parallel, lossless compression of SPM Res_XXXX.nii.
+%COMPRESS_SPM_RESIDUALS Parallel, lossless compression of SPM beta_XXXX.nii.
 %
 % report = compress_spm_residuals(datasetDir)
 % report = compress_spm_residuals(datasetDir, dryRun, minAgeMinutes, numWorkers)
 %
-% Recursively finds SPM residuals named Res_XXXX.nii (exactly 4 digits).
+% Recursively finds SPM residuals named beta_XXXX.nii (exactly 4 digits).
 % Each file is gzip-compressed and decompressed into an independent temporary
 % directory for BYTE-FOR-BYTE verification. The .nii is deleted ONLY after
 % successful verification. Existing .nii.gz files are never overwritten.
@@ -63,14 +63,14 @@ function report = compress_spm_residuals_par(datasetDir, dryRun, minAgeMinutes, 
     end
 
     % Include files in both the root and all nested directories.
-    rootFiles = dir(fullfile(datasetDir, 'Res_*.nii'));
-    subFiles  = dir(fullfile(datasetDir, '**', 'Res_*.nii'));
+    rootFiles = dir(fullfile(datasetDir, 'beta_*.nii'));
+    subFiles  = dir(fullfile(datasetDir, '**', 'beta_*.nii'));
     files = [rootFiles; subFiles];
 
     paths = cell(0,1);
     for k = 1:numel(files)
         if ~files(k).isdir && ~isempty(regexp(files(k).name, ...
-                '^Res_[0-9]{4}\.nii$', 'once'))
+                '^beta_[0-9]{4}\.nii$', 'once'))
             paths{end+1,1} = fullfile(files(k).folder, files(k).name); %#ok<AGROW>
         end
     end
