@@ -80,7 +80,15 @@ for hi=1:length(hemis)
                     confnames=confnameopts{2};
                     keep_cols = ismember(header, confnames);
                 end
-                conf_selected = confall(2:end, keep_cols);
+                % tsvread includes the header row; confounds must match all original scans.
+                assert(size(confall,1)-1 == numel(scanInput), ...
+                    'Confound rows do not match the original scan count.');
+                % Discard the same initial volumes from scans and nuisance regressors.
+                conf_selected = confall(wf.volskip+2:end, keep_cols);
+                assert(size(conf_selected,1) == numel(scans), ...
+                    'Nuisance regressors and scans are misaligned.');
+                assert(all(isfinite(conf_selected(:))), ...
+                    'Nuisance regressors contain NaN or Inf.');
                 conf_selected=array2table(conf_selected, 'VariableNames', confnames);
                 writetable(conf_selected, minregfn, 'WriteVariableNames', false, 'Delimiter', '\t');
                 % Get Onsets
