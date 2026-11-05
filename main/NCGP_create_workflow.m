@@ -79,12 +79,12 @@ switch wfname
         wf.glmresiduals=0;
         wf.pre='fmriprep';
         wf.glm='SPM_GLM';
-        wf.mcc='none';
+        wf.mcc='FWE';
 % Call → NCGP_osdir: Project function call
         wf.mainpath=NCGP_osdir(wf.exp);
         wf.task='localizer';
         wf.modeltype='regperidentity';
-        wf.volskip=0;
+        wf.volskip=5;
         wf.smooth='S6';
         wf.threshold=0.05;
         wf.mink=3;

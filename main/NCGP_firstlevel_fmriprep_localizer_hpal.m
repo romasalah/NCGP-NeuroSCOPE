@@ -133,7 +133,7 @@ for hi=1:length(hemis)
     matlabbatch{1}.spm.stats.fmri_spec.timing.units = 'secs';
     matlabbatch{1}.spm.stats.fmri_spec.timing.RT = TR;
     matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t = 16;
-    matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = 1;
+    matlabbatch{1}.spm.stats.fmri_spec.timing.fmri_t0 = 9;
     matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)';
 
     % Section: if-block starts
@@ -143,7 +143,7 @@ for hi=1:length(hemis)
     else
         outputsub=subs{subi};
     end
-    spmmatdir=[mainFolder filesep  wf.alignment filesep wf.glm filesep  outputsub filesep wf.pre filesep  'task-' wf.task '_hemi-' curhemi '_smooth-' wf.smooth filesep];
+    spmmatdir=[mainFolder filesep  'derivatives' filesep wf.glm filesep  outputsub filesep wf.pre filesep  'task-' wf.task '_hemi-' curhemi '_smooth-' wf.smooth filesep];
     mkdir(spmmatdir)
     matlabbatch{1}.spm.stats.fmri_spec.dir= { spmmatdir };
 

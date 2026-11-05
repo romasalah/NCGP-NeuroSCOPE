@@ -7,17 +7,17 @@ if Step == 1
     % Build directory config and execution order for the overall analysis workflow.
     wf1=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     % Build directory config and execution order for the overall analysis workflow.
-    wfloc1=NCGP_create_workflow('localizer', {'R'},'NCGP','hpal');
+    wfloc1=NCGP_create_workflow('localizer', {'L'},'NCGP','hpal');
     %% Apply Hyperalignment (Generates NIML dset from GIFTI)
     % NCGP_hpal_map(wf1)
     % NCGP_hpal_map(wf1)
     %% Importing fMRIprep data From NIML dset to NIFTI
-%   NCGP_niml2nii(wf1);
-   % NCGP_niml2nii(wfloc1);
+    %   NCGP_niml2nii(wf1);
+    % NCGP_niml2nii(wfloc1);
     %% GLM: localizer:
-    % loc_runs=NCGP_onsets_localizer(wfloc1);
-    % wfloc1.group=1;
-    % firstleveldir=NCGP_firstvalue_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
+    loc_runs=NCGP_onsets_localizer(wfloc1);
+    wfloc1.group=1;
+    firstleveldir=NCGP_firstlevel_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
     % [conimgname,conimg_clustNum,spmdir]=NCGP_localiser_contrasts_hpal(wfloc1, loc_runs);
     %% GLM: Faces:
     % Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
@@ -25,8 +25,8 @@ if Step == 1
     % Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
     %NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
     %% #######  ALign localizer mask to sessions and extract ROIs  #######
-% [S1_allnii,allroismat,S1_wholeroismat,combinedrois_binname]=NCGP_tmap2mask_allruns(localiserspmmatdir,conimgname,...
-%    {S1_taskrunsprefix, S2_taskrunsprefix},0);
+    % [S1_allnii,allroismat,S1_wholeroismat,combinedrois_binname]=NCGP_tmap2mask_allruns(localiserspmmatdir,conimgname,...
+    %    {S1_taskrunsprefix, S2_taskrunsprefix},0);
 elseif Step==2
     %% Part 2: Must be done for session 2 and 3 simultaneoulsy
     %% Create workflows
@@ -38,7 +38,7 @@ elseif Step==2
     %% Hypothesis 1
     % Compute pre vs post session differences (e.g., between-/within-group LDt change).
     [targetRSM_pre, targetRSM_post, wf2.targetRDM_pre, wf2.targetRDM_post, taskname]=NCGP_prepost(wfbehav,0);
-    %% 
+    %%
     %% Searchlights: Neighbourhoods, Betas , and Residuals
     [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
         nbrorig_subsesshemi]=NCGP_surficial_neighborhood_persub(wf2, faces_runs, 0);
@@ -47,9 +47,9 @@ elseif Step==2
     % Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
     [ldt_byrun, ldt_avgruns]=NCGP_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
     %% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
-    % 
+    %
     % Export LDt (or RDM-like) matrices across sessions/hemispheres into files for later stats/LLM usage.
-   % FFXtbl_subsesshemi=NCGP_RDM_export(wf2, ldt_avgruns, fullnbr_subsesshemi, vo, fo, 'none', []);
+    % FFXtbl_subsesshemi=NCGP_RDM_export(wf2, ldt_avgruns, fullnbr_subsesshemi, vo, fo, 'none', []);
     % Optional plotting of LDt values
     % NCGP_plot_lDt(wf2,nbrhood_e in discriminability scores
     % >>>>>>>Whole Brain<<<<<<<<spm fmri
