@@ -15,9 +15,9 @@ if Step == 1
 %   NCGP_niml2nii(wf1);
    % NCGP_niml2nii(wfloc1);
     %% GLM: localizer:
-    % loc_runs=NCGP_onsets_localizer(wfloc1);
-    % wfloc1.group=1;
-    % firstleveldir=NCGP_firstvalue_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
+    loc_runs=NCGP_onsets_localizer(wfloc1);
+     wfloc1.group=1;
+     firstleveldir=NCGP_firstlevel_fmriprep_localizer_hpal(wfloc1, [0,0], loc_runs);
     % [conimgname,conimg_clustNum,spmdir]=NCGP_localiser_contrasts_hpal(wfloc1, loc_runs);
     %% GLM: Faces:
     % Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
@@ -57,7 +57,7 @@ elseif Step==2
     %[ statresults,signodes_surf]=NCGP_LDt_stats(wf2, 'none', 'TFCE',ds, ldt_avgruns);
 
     [ statresults,signodes_surf]=NCGP_LDt_stats_prepost(wf2, 'none', ldt_avgruns);
-    % Plot and store MDS from LDt distances for visualization.
+    %% Plot and store MDS from LDt distances for visualization.
     NCGP_plot_MDS_LDC(wf2,ldt_avgruns,fullnbr_subsesshemi, TFCE_stats, stats, slnames,'none','TFCE')
     %% Hypothesis 3: Searchlight RSA (LDt Correlation with behavioural RDMs)
     % >>>>>>>Whole Brain<<<<<<<<
