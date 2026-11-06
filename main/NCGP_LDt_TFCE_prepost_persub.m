@@ -1,20 +1,9 @@
-% H2 participant-specific workflow: SPM one-sample GLMs and surface TFCE.
-% Signature mirrors NCGP_LDt_TFCE_prepost.m, but oldds is not used here.
-function signodes_surf = NCGP_LDt_TFCE_prepost_persub( ...
-    wf,LDCvals,oldds,curhemi,maskname)
-[C1_files,C2_files,maskfile]=NCGP_LDt_TFCE_prepostsurf_persub( ...
-    wf,LDCvals,curhemi,maskname);
+% Paired participant-level SPM model, surface TFCE, and H2 conjunction.
+function signodes_surf = NCGP_LDt_TFCE_prepost_persub(wf,LDCvals,oldds,curhemi,maskname)
+[C1_files,C2_files,maskfile]=NCGP_LDt_TFCE_prepostsurf_persub(wf,LDCvals,curhemi,maskname);
+[spmmat,blocksFile]=NCGP_LDt_Factorial_persub(wf,C1_files,C2_files,maskfile,maskname,curhemi);
 
-spmmatC1=NCGP_LDt_Factorial_persub( ...
-    wf,C1_files,maskfile,maskname,curhemi,'C1');
-spmmatC2=NCGP_LDt_Factorial_persub( ...
-    wf,C2_files,maskfile,maskname,curhemi,'C2');
-
-NCGP_LDt_TFCE_estimate_persub( ...
-    wf,'SPM',maskfile,spmmatC1,maskname,curhemi,[]);
-NCGP_LDt_TFCE_estimate_persub( ...
-    wf,'SPM',maskfile,spmmatC2,maskname,curhemi,[]);
-
-signodes_surf=NCGP_LDt_TFCE_vol2surf_persub( ...
-    wf,maskname,curhemi,spmmatC1,spmmatC2,maskfile);
+% Swapping within blocks tests C1-C2 only. Marginal H2 tests are sign-flipped.
+NCGP_LDt_TFCE_estimate_persub(wf,spmmat,maskfile,blocksFile,C1_files,C2_files,curhemi);
+signodes_surf=NCGP_LDt_TFCE_vol2surf_persub(wf,maskname,curhemi,spmmat,maskfile);
 end
