@@ -19,9 +19,9 @@ function report = compress_volumetric_func_niftis_par(datasetDir, dryRun, minAge
 %                    an existing pool, or up to 4 workers). 1 = serial.
 %
 % Examples:
-%   compress_volumetric_func_niftis_par('D:\Omar\NCGP\data\derivatives', true);
-%   r = compress_volumetric_func_niftis_par('D:\Omar\NCGP\data\derivatives', false, 60, 4);
-%   r = compress_volumetric_func_niftis_par('D:\Omar\NCGP\data\derivatives', false, 60, 8);
+%   compress_volumetric_func_niftis_par('E:\NCGP2\data\derivatives', true);
+%   r = compress_volumetric_func_niftis_par('E:\NCGP2\data\derivatives', false, 60, 4);
+%   r = compress_volumetric_func_niftis_par('E:\NCGP2\data\derivatives', false, 60, 8);
 %
 % Parallel execution requires Parallel Computing Toolbox for numWorkers > 1.
 % All workers must access datasetDir and have enough temporary disk space.

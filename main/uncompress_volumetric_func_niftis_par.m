@@ -18,8 +18,8 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
 %                    up to 4). Use 1 for serial processing.
 %
 % Examples:
-%   uncompress_volumetric_func_niftis_par('D:\Omar\NCGP\data\derivatives', true);
-%   r = uncompress_volumetric_func_niftis_par('D:\Omar\NCGP\data\derivatives', false, 0, 4);
+%   uncompress_volumetric_func_niftis_par('E:\NCGP2\data\derivatives', true);
+%   r = uncompress_volumetric_func_niftis_par('E:\NCGP2\data\derivatives', false, 0, 4);
 %
 % Do not run while another process is creating or replacing these files.
 % Extraction is staged in a unique folder next to each archive, not in

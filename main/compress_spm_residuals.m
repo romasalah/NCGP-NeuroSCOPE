@@ -15,8 +15,8 @@ function report = compress_spm_residuals(datasetDir, dryRun, minAgeMinutes)
 %   minAgeMinutes    Skip recently modified NIfTIs (default 60 minutes)
 %
 % Example:
-%   r = compress_spm_residuals('D:\Omar\NCGP\data\derivatives\SPM_GLM');
-%   r = compress_spm_residuals('D:\Omar\NCGP\data', true);  % Preview
+%   r = compress_spm_residuals('E:\NCGP2\data\derivatives\SPM_GLM');
+%   r = compress_spm_residuals('E:\NCGP2\data', true);  % Preview
 %
 % Requires MATLAB's built-in gzip and gunzip functions.
 

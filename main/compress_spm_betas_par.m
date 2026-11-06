@@ -18,9 +18,9 @@ function report = compress_spm_residuals_par(datasetDir, dryRun, minAgeMinutes, 
 %                    an existing pool, or up to 4 workers). 1 = serial.
 %
 % Examples:
-%   compress_spm_residuals('D:\Omar\NCGP\data\derivatives', true);
-%   r = compress_spm_residuals('D:\Omar\NCGP\data\derivatives', false, 60, 4);
-%   r = compress_spm_residuals('D:\Omar\NCGP\data\derivatives', false, 60, 8);
+%   compress_spm_residuals('E:\NCGP2\data\derivatives', true);
+%   r = compress_spm_residuals('E:\NCGP2\data\derivatives', false, 60, 4);
+%   r = compress_spm_residuals('E:\NCGP2\data\derivatives', false, 60, 8);
 %
 % Parallel execution requires Parallel Computing Toolbox for numWorkers > 1.
 % All workers must access datasetDir and have enough temporary disk space.
