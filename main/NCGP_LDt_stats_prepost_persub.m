@@ -64,7 +64,12 @@ for hi=1:numel(wf.hemis)
     for fi=1:numel(fields)
         common=common & all(isfinite(statresults{hi}.(fields{fi})),2);
     end
-    assert(any(common),'No common valid searchlights in %s.',wf.hemis{hi});
+    % Exclude vertices where the group t-statistic is undefined because
+    % all participants have identical contrast values.
+    varC1=var(statresults{hi}.C1,0,2);
+    varC2=var(statresults{hi}.C2,0,2);
+    common=common & varC1>0 & varC2>0;
+    assert(any(common),'No common estimable vertices in %s.',wf.hemis{hi});
     statresults{hi}.valid_mask=common;
     statresults{hi}.subjects=wf.origsubs(:);
     fprintf('H2 %s: %d/%d vertices valid across %d participants.\n', ...
