@@ -24,6 +24,9 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
 % Do not run while another process is creating or replacing these files.
 % Extraction is staged in a unique folder next to each archive, not in
 % the system temporary directory. Decompression verifies gzip integrity.
+% A live progress bar in the Command Window tracks completed files in both
+% serial and parallel modes (skipped and failed files count as processed).
+% Parallel progress is reported on the MATLAB client using DataQueue.
 
     if nargin < 1 || isempty(datasetDir)
         error('Provide the root dataset directory.');
@@ -85,11 +88,16 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
 
     tAll = tic;
     results = cell(n,1);
+    completed = 0;
+    progressStep = max(1, ceil(n / 100)); % Limit display updates to ~100.
+
+    fprintf('Progress: [%s]   0%% (0/%d)', repmat('.', 1, 30), n);
 
     if dryRun
         fprintf('DRY RUN: No files will be changed.\n');
         for k = 1:n
             results{k} = restoreOneVolumetricFunc(paths{k}, minAgeMinutes, true);
+            updateProgress();
         end
     else
         if isempty(numWorkers)
@@ -107,6 +115,7 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
             fprintf('Serial decompression.\n');
             for k = 1:n
                 results{k} = restoreOneVolumetricFunc(paths{k}, minAgeMinutes, false);
+                updateProgress();
             end
         else
             pool = gcp('nocreate');
@@ -119,11 +128,24 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
             report.parallelWorkers = pool.NumWorkers;
             fprintf('Parallel decompression using %d workers.\n', ...
                 report.parallelWorkers);
+
+            % Workers report completion to the client; no shared counter
+            % is written inside parfor.
+            progressQueue = parallel.pool.DataQueue;
+            afterEach(progressQueue, @(~) updateProgress());
             parfor k = 1:n
                 results{k} = restoreOneVolumetricFunc(paths{k}, minAgeMinutes, false);
+                send(progressQueue, 1);
             end
         end
     end
+
+    % Ensure 100% is displayed even if DataQueue callbacks are delayed.
+    if completed < n
+        completed = n - 1;
+        updateProgress();
+    end
+    fprintf('\n');
 
     for k = 1:n
         result = results{k};
@@ -143,6 +165,22 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
     fprintf('Restored: %.2f GiB; workers=%d; elapsed=%.1f s\n', ...
         report.bytesRestored / 1024^3, ...
         report.parallelWorkers, report.elapsedSeconds);
+
+    function updateProgress()
+        % Called on the client, including callbacks from parallel workers.
+        if completed >= n
+            return;
+        end
+        completed = completed + 1;
+        if mod(completed, progressStep) ~= 0 && completed ~= n
+            return;
+        end
+        fraction = completed / n;
+        filled = round(30 * fraction);
+        fprintf('\rProgress: [%s%s] %3.0f%% (%d/%d)', ...
+            repmat('=', 1, filled), repmat('.', 1, 30-filled), ...
+            100 * fraction, completed, n);
+    end
 end
 
 function result = restoreOneVolumetricFunc(gz, minAgeMinutes, dryRun)
