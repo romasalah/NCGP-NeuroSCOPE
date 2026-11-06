@@ -23,7 +23,7 @@ if pcnum==1
 else
     mainpathin='/idata/';
     mainpathout=wf.mainpath;
-    basedir='/mnt/c/Users/CENs-Admin/Documents/Omar/NCGP/';
+    basedir='/mnt/e/NCGP2/';
     IMG=[basedir 'singularity/neurodockerv4e.img'];
     bashbase=['wsl singularity exec -B ' basedir ':/idata ' IMG ' '];
     pypath=['/opt/conda2/envs/neuro27/bin/python'];

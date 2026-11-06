@@ -13,7 +13,7 @@ sumasuffix='derivatives/freesurfer/fsaverage6/SUMA/';
 % Section: if-block starts
 mainpathin='/idata/';
 mainpathout=wf.mainpath;
-basedir='/mnt/d/Omar/NCGP/data/';
+basedir='/mnt/e/NCGP2/data/';
 imgbase=[p.imgpathout 'singularity/neurodockerV5*.img'];
 imglistdir = dir(imgbase);
 imglist={imglistdir(~[imglistdir(:).isdir]).name};

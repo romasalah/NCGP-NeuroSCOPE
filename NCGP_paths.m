@@ -30,11 +30,11 @@ for i=1:length(wf.subs)
     p.glmsub{i}=[p.glm wf.subs{i}];
 end
 
-p.wslbasedir='/mnt/d/Omar/NCGP/data/';
+p.wslbasedir='/mnt/e/NCGP2/data/';
 p.mainpathin='/idata/';
 p.mainpathout=wf.mainpath;
-p.imgpathout='D:\Omar\NCGP\data\';
-p.imgpathin='/mnt/d/Omar/NCGP/data/';
+p.imgpathout='E:\NCGP2\data\';
+p.imgpathin='/mnt/e/NCGP2/data/';
 IMG=[p.imgpathin 'singularity/neurodockerV5' imgsfx '.img'];
 p.bashbase=['wsl singularity exec -B ' p.wslbasedir ':/idata ' IMG ' '];
 end

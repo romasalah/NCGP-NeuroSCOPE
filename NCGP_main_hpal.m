@@ -7,7 +7,7 @@ if Step == 1
     % Build directory config and execution order for the overall analysis workflow.
     wf1=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
     % Build directory config and execution order for the overall analysis workflow.
-    wfloc1=NCGP_create_workflow('localizer', {'L'},'NCGP','hpal');
+    wfloc1=NCGP_create_workflow('localizer', {'R'},'NCGP','hpal');
     %% Apply Hyperalignment (Generates NIML dset from GIFTI)
     % NCGP_hpal_map(wf1)
     % NCGP_hpal_map(wf1)
@@ -23,7 +23,7 @@ if Step == 1
     % Parse and format the 00main task (faces) onsets and condition labels for first-level GLMs.
     [faces_runs]=NCGP_onsets_faces(wf1);
     % Run first-level GLM per subject (whole-brain/surface) using fMRIPrep outputs.
-    %NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
+    NCGP_firstlevel_fmriprep_hpal_glmpersub(wf1, [0, 0], faces_runs);
     %% #######  ALign localizer mask to sessions and extract ROIs  #######
     % [S1_allnii,allroismat,S1_wholeroismat,combinedrois_binname]=NCGP_tmap2mask_allruns(localiserspmmatdir,conimgname,...
     %    {S1_taskrunsprefix, S2_taskrunsprefix},0);

@@ -4,7 +4,7 @@ function [preb_vols,prew_vols,postb_vols,postw_vols] = NCGP_LDt_TFCE_prepostsurf
 paths = NCGP_paths(wf);
 
 % Load surface mesh
-sumafolder = 'D:\Omar\NCGP\data\derivatives\fsaverage6\SUMA\';
+sumafolder = 'E:\NCGP2\data\derivatives\fsaverage6\SUMA\';
 meshfile = fullfile(sumafolder,[lower(curhemi) 'h.pial.gii']);
 mesh = gifti(meshfile);
 
