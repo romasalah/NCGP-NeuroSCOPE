@@ -13,6 +13,7 @@ fields={'PreB','PreW','PostB','PostW','C1','C2'};
 statresults=cell(1,numel(wf.hemis));
 signodes_surf=cell(1,numel(wf.hemis));
 for hi=1:numel(wf.hemis)
+    statresults{hi}=struct();
     nroi=numel(ldt_avgruns{1,hi,1});
     for k=1:numel(fields)
         statresults{hi}.(fields{k})=NaN(nroi,nsub);
