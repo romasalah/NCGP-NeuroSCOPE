@@ -23,6 +23,7 @@ statresults=cell(1,numel(wf.hemis));
 signodes_surf=cell(1,numel(wf.hemis));
 fields={'PreB','PreW','PostB','PostW','C1','C2'};
 for hi=1:numel(wf.hemis)
+    statresults{hi}=struct();
     nroi=numel(ldt_avgruns{1,hi,1});
     assert(nroi>0,'No searchlights for hemisphere %s.',wf.hemis{hi});
     for fi=1:numel(fields)
