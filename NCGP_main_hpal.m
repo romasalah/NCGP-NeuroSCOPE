@@ -30,7 +30,7 @@ if Step == 1
 elseif Step==2
     %% Part 2: Must be done for session 2 and 3 simultaneoulsy
     %% Create workflows
-    wf2=NCGP_create_workflow('faces', {'R'},'NCGP','hpal');
+    wf2=NCGP_create_workflow('faces', {'L'},'NCGP','hpal');
     wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
     wf2.sessions={ 'ses-02','ses-03'};
     [faces_runs]=NCGP_onsets_faces(wf2);

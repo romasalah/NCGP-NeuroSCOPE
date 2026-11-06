@@ -110,12 +110,12 @@ function report = uncompress_volumetric_func_niftis_par(datasetDir, dryRun, minA
             end
         else
             pool = gcp('nocreate');
-            if isempty(pool)
-                pool = parpool('local', numWorkers);
-            elseif pool.NumWorkers ~= numWorkers
-                warning('Existing pool has %d workers; using it instead of %d.', ...
-                    pool.NumWorkers, numWorkers);
-            end
+            % if isempty(pool)
+            %     pool = parpool('local', numWorkers);
+            % elseif pool.NumWorkers ~= numWorkers
+            %     warning('Existing pool has %d workers; using it instead of %d.', ...
+            %         pool.NumWorkers, numWorkers);
+            % end
             report.parallelWorkers = pool.NumWorkers;
             fprintf('Parallel decompression using %d workers.\n', ...
                 report.parallelWorkers);
