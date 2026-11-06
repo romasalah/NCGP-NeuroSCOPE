@@ -3,6 +3,11 @@ function [C1_files,C2_files,maskfile] = NCGP_LDt_TFCE_prepostsurf_persub( ...
     wf,LDCvals,curhemi,maskname)
 p=NCGP_paths(wf);
 meshfile=fullfile(p.refsuma,[lower(curhemi) 'h.pial.gii']);
+if ~isfile(meshfile)
+    % Legacy GIfTI location used by NCGP_LDt_TFCE_prepostsurf.
+    meshfile=fullfile(p.mp,'derivatives',wf.refsub,'SUMA', ...
+        [lower(curhemi) 'h.pial.gii']);
+end
 assert(isfile(meshfile),'Reference GIfTI mesh not found: %s.',meshfile);
 mesh=gifti(meshfile);
 nvertices=size(mesh.vertices,1);
