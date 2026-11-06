@@ -42,6 +42,10 @@ outdir=fullfile(paths.mp,'derivatives','LDC','group', ...
     wf.pre,wf.glm,['hemi-' curhemi '_mask-' maskname '_persub_conjunction']);
 if ~isfolder(outdir), mkdir(outdir); end
 meshfile=fullfile(paths.refsuma,[lower(curhemi) 'h.pial.gii']);
+if ~isfile(meshfile)
+    meshfile=fullfile(paths.mp,'derivatives',wf.refsub,'SUMA', ...
+        [lower(curhemi) 'h.pial.gii']);
+end
 assert(isfile(meshfile),'Reference surface not found: %s',meshfile);
 save_metric(double(sigC1),'C1_sig_FWE.gii');
 save_metric(double(sigC2),'C2_sig_FWE.gii');
