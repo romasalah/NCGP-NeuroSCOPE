@@ -2,7 +2,7 @@
 % Overall goal: Master driver for the hyperalignment-based, surface MVPA workflow: runs onset parsing, GLMs, localizer contrasts, surface projections, searchlight neighborhoods, LDt computation, group stats, and map export.
 % Place in pipeline: Surface-based MVPA workflow (hyperalignment → GLMs → surface stacks → searchlights → LDt → group stats/corr maps).
 % ========n==================================================================
-% Standalone participant-level H2 driver (original main remains unchanged).
+% Independent H2 duplicate: H1 and H3 remain in NCGP_main_hpal.m.
 Step=2;
 if Step == 1
     % Build directory config and execution order for the overall analysis workflow.
@@ -29,48 +29,24 @@ if Step == 1
     % [S1_allnii,allroismat,S1_wholeroismat,combinedrois_binname]=NCGP_tmap2mask_allruns(localiserspmmatdir,conimgname,...
     %    {S1_taskrunsprefix, S2_taskrunsprefix},0);
 elseif Step==2
-    %% Part 2: Must be done for session 2 and 3 simultaneoulsy
-    %% Create workflows
+    %% Participant-level H2: ses-02 (pre) and ses-03 (post)
     wf2=NCGP_create_workflow('faces', {'L'},'NCGP','hpal');
-    wfbehav=NCGP_create_workflow('', {'R'},'BehavNCGP','hpal');
-    wf2.sessions={ 'ses-02','ses-03'};
-    [faces_runs]=NCGP_onsets_faces(wf2);
-    wf2.origsubs=wf2.subs;wf2.subs={'group'};
-    %% Hypothesis 1
-    % Compute pre vs post session differences (e.g., between-/within-group LDt change).
-    [targetRSM_pre, targetRSM_post, wf2.targetRDM_pre, wf2.targetRDM_post, taskname]=NCGP_prepost(wfbehav,0);
-    %%
-    %% Searchlights: Neighbourhoods, Betas , and Residuals
-    [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn,allnbrhoods,nscans_subrun,...
-        nbrorig_subsesshemi]=NCGP_surficial_neighborhood_persub(wf2, faces_runs, 0);
-    %% Calculate, visualise & save Discriminability between conditions (LDt)
-    % >>>>>>>>>> Whole brain LDt <<<<<<<<
-    % Orchestrate LDt computation across sessions (and hemispheres); handles loading/storing betas/residuals.
-    %% Participant-specific H2: independent subject-level LDC maps.
-    [ldt_byrun_persub, ldt_avgruns_persub] = NCGP_LDt_persub_opt_mah( ...
-        wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
-    [statresults_persub, signodes_surf_persub] = NCGP_LDt_stats_prepost_persub( ...
-        wf2, 'none', ldt_avgruns_persub);
-    %% Keep original pooled distances for the existing H3/RSA branch.
-    [ldt_byrun, ldt_avgruns]=NCGP_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
-    %% Hypthesis 2: Chang_LDt_subses(wf2, betasfn, fullnbr_subsesshemi, nscans_subrun, 'none');
-    %
-    % Export LDt (or RDM-like) matrices across sessions/hemispheres into files for later stats/LLM usage.
-    % FFXtbl_subsesshemi=NCGP_RDM_export(wf2, ldt_avgruns, fullnbr_subsesshemi, vo, fo, 'none', []);
-    % Optional plotting of LDt values
-    % NCGP_plot_lDt(wf2,nbrhood_e in discriminability scores
-    % >>>>>>>Whole Brain<<<<<<<<spm fmri
-    % Searchlight-level statistical testing of LDt changes (between-group vs within-group) with multiple-comparison control.
-    %[ statresults,signodes_surf]=NCGP_LDt_stats(wf2, 'none', 'TFCE',ds, ldt_avgruns);
+    wf2.sessions={'ses-02','ses-03'};
+    faces_runs=NCGP_onsets_faces(wf2);
+    wf2.origsubs=wf2.subs;
+    wf2.subs={'group'};
 
-    % Legacy identity-pair H2 model disabled; use the participant-level H2 results above.
-    %% Plot and store MDS from LDt distances for visualization.
-    % Legacy plotting used undefined TFCE_stats, stats and slnames; call it separately with valid inputs.
-    %% Hypothesis 3: Searchlight RSA (LDt Correlation with behavioural RDMs)
-    % >>>>>>>Whole Brain<<<<<<<<
-    % Aggregate correlation values across runs; prepare per-searchlight correlation statistics.
-    [LLM_LDtcorr, LDtcorr, sigFDR_idx, q_values, LDtcorr_pval, sig_FDR_coef, corr_sesshemi, pval_sesshemi]=NCGP_LDtcorr_AvgRun(...
-        wf2, ds, ldt_avgruns, taskname, vo, fo, 'none');
-    % Run TFCE or surface-based cluster enhancement and output corrected maps.
-    NCGP_surface_tfce(wf2, LDtcorr,corr_sesshemi, nbrorig_subsesshemi, 'none', [], taskname, ds,vo,fo);
+    %% Searchlights, beta estimates, residuals.
+    % Reuse validated beta cache when beta_run_chunks match the run order.
+    [ds, fullnbr_subsesshemi, vo, fo, out2in, betasfn, allnbrhoods, ...
+        nscans_subrun, nbrorig_subsesshemi] = ...
+        NCGP_surficial_neighborhood_persub(wf2,faces_runs,1);
+
+    %% Crossvalidated Mahalanobis LDC within participant only.
+    [ldt_byrun_persub, ldt_avgruns_persub] = NCGP_LDt_persub_opt_mah( ...
+        wf2,betasfn,fullnbr_subsesshemi,nscans_subrun,'none');
+
+    %% H2: contrast maps, two one-sample surface GLMs, TFCE and conjunction.
+    [statresults_persub,signodes_surf_persub] = ...
+        NCGP_LDt_stats_prepost_persub(wf2,'none',ldt_avgruns_persub);
 end
