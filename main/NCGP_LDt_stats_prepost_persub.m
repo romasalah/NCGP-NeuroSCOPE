@@ -1,56 +1,36 @@
-% Participant-specific H2, retaining subject as the random-effects unit.
-% C1 = PostB - PostW; C2 = (PostB - PostW) - (PreB - PreW).
+% Calculate subject-specific H2 condition means and contrast maps.
 function [statresults,signodes_surf] = NCGP_LDt_stats_prepost_persub(wf,maskname,ldt_avgruns)
-assert(numel(wf.sessions)==2 && strcmp(wf.sessions{1},'ses-02') && ...
-    strcmp(wf.sessions{2},'ses-03'), ...
-    'H2 requires ses-02 (pre) followed by ses-03 (post).');
-assert(isfield(wf,'origsubs') && ~isempty(wf.origsubs), ...
-    'Missing wf.origsubs participant IDs.');
+if ~isequal(wf.sessions,{'ses-02','ses-03'})
+    error('H2 requires ses-02 (pre), ses-03 (post), in that order.');
+end
 nsub=numel(wf.origsubs);
-assert(size(ldt_avgruns,1)==2 && ...
-    size(ldt_avgruns,2)==numel(wf.hemis) && ...
-    size(ldt_avgruns,3)==nsub, ...
-    'Expected input {session, hemisphere, participant}.');
-
-% Eight identities: first four AH and last four NAT.
 [r,c]=find(triu(true(8),1));
 between=r<=4 & c>=5;
-idxB=sub2ind([8 8],r(between),c(between));
-idxW=sub2ind([8 8],r(~between),c(~between));
-assert(numel(idxB)==16 && numel(idxW)==12);
+idxB=sub2ind([8,8],r(between),c(between));
+idxW=sub2ind([8,8],r(~between),c(~between));
 
+fields={'PreB','PreW','PostB','PostW','C1','C2'};
 statresults=cell(1,numel(wf.hemis));
 signodes_surf=cell(1,numel(wf.hemis));
-fields={'PreB','PreW','PostB','PostW','C1','C2'};
 for hi=1:numel(wf.hemis)
-    statresults{hi}=struct();
     nroi=numel(ldt_avgruns{1,hi,1});
-    assert(nroi>0,'No searchlights for hemisphere %s.',wf.hemis{hi});
-    for fi=1:numel(fields)
-        statresults{hi}.(fields{fi})=NaN(nroi,nsub);
+    for k=1:numel(fields)
+        statresults{hi}.(fields{k})=NaN(nroi,nsub);
     end
     for subi=1:nsub
         pre=ldt_avgruns{1,hi,subi};
         post=ldt_avgruns{2,hi,subi};
-        assert(numel(pre)==nroi && numel(post)==nroi, ...
-            'Searchlight count differs for participant %s, hemisphere %s.', ...
-            wf.origsubs{subi},wf.hemis{hi});
+        if numel(pre)~=nroi || numel(post)~=nroi
+            error('Searchlight order/count mismatch in %s.',wf.origsubs{subi});
+        end
         for vi=1:nroi
-            a=pre{vi};
-            b=post{vi};
-            if isempty(a) || isempty(b)
-                continue
-            end
-            assert(isequal(size(a),[8 8]) && isequal(size(b),[8 8]), ...
-                'Expected 8x8 LDC matrices at searchlight %d.',vi);
+            a=pre{vi}; b=post{vi};
+            if isempty(a) || isempty(b), continue; end
             pairs=[a(idxB);a(idxW);b(idxB);b(idxW)];
-            if ~all(isfinite(pairs))
-                continue
-            end
-            PreB=mean(a(idxB));
-            PreW=mean(a(idxW));
-            PostB=mean(b(idxB));
-            PostW=mean(b(idxW));
+            if any(~isfinite(pairs)), continue; end
+
+            PreB=mean(a(idxB)); PreW=mean(a(idxW));
+            PostB=mean(b(idxB)); PostW=mean(b(idxW));
             statresults{hi}.PreB(vi,subi)=PreB;
             statresults{hi}.PreW(vi,subi)=PreW;
             statresults{hi}.PostB(vi,subi)=PostB;
@@ -59,22 +39,14 @@ for hi=1:numel(wf.hemis)
             statresults{hi}.C2(vi,subi)=(PostB-PostW)-(PreB-PreW);
         end
     end
-    % Restrict BOTH tests to identical vertices across ALL participants.
-    common=true(nroi,1);
-    for fi=1:numel(fields)
-        common=common & all(isfinite(statresults{hi}.(fields{fi})),2);
-    end
-    % Exclude vertices where the group t-statistic is undefined because
-    % all participants have identical contrast values.
-    varC1=var(statresults{hi}.C1,0,2);
-    varC2=var(statresults{hi}.C2,0,2);
-    common=common & varC1>0 & varC2>0;
-    assert(any(common),'No common estimable vertices in %s.',wf.hemis{hi});
-    statresults{hi}.valid_mask=common;
+
+    % Use exactly the same estimable cortical vertices for both tests.
+    c1=statresults{hi}.C1; c2=statresults{hi}.C2;
+    valid=all(isfinite(c1) & isfinite(c2),2) & var(c1,0,2)>0 & var(c2,0,2)>0;
+    if ~any(valid), error('No valid group-level vertices in hemisphere %s.',wf.hemis{hi}); end
+    statresults{hi}.valid_mask=valid;
     statresults{hi}.subjects=wf.origsubs(:);
-    fprintf('H2 %s: %d/%d vertices valid across %d participants.\n', ...
-        wf.hemis{hi},nnz(common),nroi,nsub);
-    signodes_surf{hi}=NCGP_LDt_TFCE_prepost_persub( ...
-        wf,statresults{hi},[],wf.hemis{hi},maskname);
+    fprintf('H2 %s: %d/%d vertices across %d subjects.\n',wf.hemis{hi},nnz(valid),nroi,nsub);
+    signodes_surf{hi}=NCGP_LDt_TFCE_prepost_persub(wf,statresults{hi},[],wf.hemis{hi},maskname);
 end
 end
