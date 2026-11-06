@@ -23,7 +23,7 @@ spm('defaults','fmri');
 spm_jobman('initcfg');
 clear matlabbatch
 matlabbatch{1}.spm.stats.factorial_design.dir={outdir};
-fblock=matlabbatch{1}.spm.stats.factorial_design.des.fblock;
+fblock=struct();
 fblock.fac(1)=struct('name','subject','dept',0,'variance',0,'gmsca',0,'ancova',0);
 fblock.fac(2)=struct('name','Condition','dept',1,'variance',1,'gmsca',0,'ancova',0);
 fblock.fsuball.specall.scans=scans;
